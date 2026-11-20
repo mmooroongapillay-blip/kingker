@@ -89,7 +89,7 @@ input{font-family:inherit}
 .lvlbox .clk{color:var(--gold);font-weight:700}
 .tcode{text-align:right;color:var(--mute);font-size:12px;line-height:1.2;min-width:54px}
 .tcode b{color:var(--text);letter-spacing:2px}
-.tablewrap{flex:1;min-height:300px;position:relative;margin:10px 6px 0}
+.tablewrap{flex:1;min-height:300px;position:relative;margin:16px 6px 0}
 .rail{position:absolute;inset:7% 9%;border-radius:50%/42%;background:linear-gradient(160deg,var(--rail1),var(--rail2));box-shadow:0 18px 40px rgba(0,0,0,.6), inset 0 2px 0 rgba(255,255,255,.07)}
 .felt{position:absolute;inset:3.2%;border-radius:50%/42%;background:radial-gradient(ellipse at 50% 42%,var(--felt1),var(--felt2) 75%);box-shadow:inset 0 0 0 2px rgba(226,179,80,.35), inset 0 10px 40px rgba(0,0,0,.45)}
 .felt::after{content:"KINGKER";position:absolute;left:0;right:0;top:66%;text-align:center;font-weight:800;letter-spacing:6px;font-size:12px;color:rgba(255,255,255,.07)}
@@ -102,6 +102,7 @@ input{font-family:inherit}
 .msg .g{color:var(--gold)}
 .bob{display:flex;align-items:center;gap:10px;padding:10px 12px 0;flex-shrink:0}
 .bav{width:40px;height:40px;border-radius:50%;background:radial-gradient(circle at 50% 35%,#3a3020,#1a140b);border:2px solid var(--gold);display:grid;place-items:center;font-size:22px;position:relative;flex-shrink:0;box-shadow:0 3px 10px rgba(0,0,0,.5)}
+.bav-felt{width:36px;height:36px;font-size:19px;margin-bottom:4px}
 .bav span{position:absolute;bottom:-9px;left:50%;transform:translateX(-50%);background:var(--gold);color:#1b1305;font-size:8.5px;font-weight:800;padding:0 5px;border-radius:6px;letter-spacing:1px}
 .bsay{background:#fff;color:#16181a;font-size:12.5px;font-weight:700;padding:5px 10px;border-radius:12px 12px 12px 3px;flex:1;min-height:30px;display:flex;align-items:center;line-height:1.3;box-shadow:0 3px 8px rgba(0,0,0,.4)}
 .bsay.pop{animation:pop .25s ease-out}
@@ -315,10 +316,9 @@ input{font-family:inherit}
     <div class="lvlbox" id="lvlbox"></div>
     <div class="tcode" id="tcode"></div>
   </header>
-  <div class="bob"><div class="bav">🤵<span>BOB</span></div><div class="bsay" id="bobsay">Welcome to KingKER!</div></div>
   <div class="tablewrap" id="tablewrap">
     <div class="rail"><div class="felt"></div></div>
-    <div class="center"><div class="board" id="board"></div><div class="pot" id="pot"></div><div class="msg" id="msg"></div></div>
+    <div class="center"><div class="bav bav-felt" title="Bob, your dealer">🤵<span>BOB</span></div><div class="board" id="board"></div><div class="pot" id="pot"></div><div class="msg" id="msg"></div></div>
     <div id="seats"></div>
     <div id="fly"></div>
     <div id="gbanner"></div>
@@ -1345,7 +1345,8 @@ function bobTalk(T0, H) {
       t = L + (H.turn >= 0 ? `Action on ${H.turn === mySeat() ? 'you' : nm(H.turn)}.` : '');
     }
   }
-  if (t !== bobLast) { bobLast = t; const el = $('#bobsay'); el.textContent = t; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
+  const el = $('#bobsay'); if (!el) return;
+  if (t !== bobLast) { bobLast = t; el.textContent = t; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
 }
 function runDealAnim(T0, H) {
   const fly = $('#fly'); fly.innerHTML = '';
