@@ -178,6 +178,9 @@ input{font-family:inherit}
 .a-fold{background:#3b2224;border:1px solid #5a3033}
 .a-call{background:linear-gradient(180deg,#27b872,#168a51)}
 .a-raise{background:linear-gradient(180deg,#f0c766,#c99234);color:#1b1305}
+.mytime{text-align:center;font-weight:800;font-size:15px;color:var(--gold);margin:-2px 0 6px;letter-spacing:.5px}
+.mytime.hot{color:#ff6b5e;animation:pop .3s}
+.eq{position:absolute;bottom:-14px;left:50%;transform:translateX(-50%);background:var(--gold);color:#1b1305;font-size:11px;font-weight:800;padding:1px 7px;border-radius:8px;z-index:5;white-space:nowrap}
 .rpanel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px;margin-bottom:8px}
 .presets{display:flex;gap:6px;margin-bottom:8px}
 .presets button{flex:1;padding:8px 2px;border-radius:9px;background:var(--panel2);border:1px solid var(--line);font-size:12.5px;font-weight:700}
@@ -277,7 +280,8 @@ input{font-family:inherit}
   </div>
   <div id="opt-stack"><p class="lbl">Starting stack</p><div class="seg" data-k="stack"><button data-v="1500">1,500</button><button data-v="3000">3,000</button><button data-v="5000">5,000</button><button data-v="10000">10,000</button></div></div>
   <div id="opt-mins"><p class="lbl">Blinds go up every</p><div class="seg" data-k="mins"><button data-v="3">3 min</button><button data-v="5">5 min</button><button data-v="8">8 min</button><button data-v="12">12 min</button><button data-v="15">15 min</button></div></div>
-  <div><p class="lbl">Turn timer (+30s time bank)</p><div class="seg" data-k="turn"><button data-v="15">15s</button><button data-v="25">25s</button><button data-v="40">40s</button><button data-v="0">Off</button></div></div>
+  <div><p class="lbl">Time to act</p><div class="seg" data-k="turn"><button data-v="10">10s</button><button data-v="15">15s</button><button data-v="25">25s</button><button data-v="40">40s</button><button data-v="0">Off</button></div></div>
+  <div id="opt-tb"><p class="lbl">Extra time bank (once per game)</p><div class="seg" data-k="tb"><button data-v="0">None</button><button data-v="15">15s</button><button data-v="30">30s</button></div></div>
   <div id="opt-bots" class="hidden"><p class="lbl">Players at the table (incl. you)</p><div class="seg" data-k="players" id="seg-players"></div></div>
   <div><p class="lbl">Buy-in per player · optional</p><input id="in-buyin" class="inp" inputmode="numeric" placeholder="e.g. 200 (Rs) — used to show payouts"></div>
   <button class="btn gold" id="b-create" style="margin-top:6px">Create table</button>
@@ -420,7 +424,7 @@ function newTable(o) {
   const mins = spin ? 2 : o.mins;
   return {
     v: 0, code: o.code || '', fmt: o.fmt, status: 'lobby',
-    set: { stack, mins, turn: o.turn, buyin: o.buyin || 0, tb: o.turn ? 30 : 0 },
+    set: { stack, mins, turn: o.turn, buyin: o.buyin || 0, tb: o.turn ? (o.tb == null ? 30 : o.tb) : 0 },
     seats: [], lvl: 0, lvlLeft: mins * 60000, paused: 0, hand: null, hist: 0
   };
 }
@@ -475,7 +479,7 @@ function startHand(T, S) {
   const order = []; let i = sb; do { order.push(i); i = nextIdx(T, i, alive); } while (i !== sb);
   for (let r = 0; r < 2; r++) for (const j of order) (S.holes[j] = S.holes[j] || []).push(S.deck.pop());
   H.turn = nextIdx(T, bb, j => needs(T, j));
-  if (H.turn === -1) H.ph = 'run';
+  if (H.turn === -1) { H.ph = 'run'; revealAllin(T, S); }
   resetTimer(T);
 }
 
@@ -529,7 +533,12 @@ function endStreet(T, S) {
   H.st++; S.deck.pop();
   if (H.st === 1) H.board.push(S.deck.pop(), S.deck.pop(), S.deck.pop()); else H.board.push(S.deck.pop());
   const nx = nextIdx(T, H.d, j => needs(T, j));
-  if (nx === -1) H.ph = 'run'; else { H.ph = 'bet'; H.turn = nx; resetTimer(T); }
+  if (nx === -1) { H.ph = 'run'; revealAllin(T, S); } else { H.ph = 'bet'; H.turn = nx; resetTimer(T); }
+}
+// all-in and no more betting possible: every player still in the hand turns their cards face up
+function revealAllin(T, S) {
+  const H = T.hand; H.allinShow = 1; H.shown = {};
+  T.seats.forEach((s, j) => { if (!H.fold[j] && S.holes[j]) H.shown[j] = S.holes[j]; });
 }
 function awardSingle(T, w) {
   const H = T.hand, total = sum(H.tot);
@@ -567,7 +576,7 @@ function showdown(T, S) {
   const winners = new Set(H.res.flatMap(r => r.w));
   H.shown = {}; H.muck = [];
   for (const j of live) {
-    if (winners.has(j) || H.allin[j] || !T.seats[j].mk) H.shown[j] = S.holes[j]; else H.muck.push(j);
+    if (H.allinShow || winners.has(j) || H.allin[j] || !T.seats[j].mk) H.shown[j] = S.holes[j]; else H.muck.push(j);
   }
   if (live.length < 2) { H.shown = null; H.muck = null; }
 }
@@ -589,6 +598,18 @@ function payouts(T) {
   return { pool, pct, amt: pct.map(p => Math.round(pool * p / 100)) };
 }
 
+// win % for hands that are all face up (all-in run-out): exact when 1-2 cards to come, sampled pre-flop
+function allinEquity(hands, board) {
+  const ids = Object.keys(hands), used = new Set(board); ids.forEach(i => hands[i].forEach(c => used.add(c)));
+  const rest = []; for (let c = 0; c < 52; c++) if (!used.has(c)) rest.push(c);
+  const need = 5 - board.length, win = {}; ids.forEach(i => win[i] = 0); let n = 0;
+  const score = b => { let best = -1, w = []; for (const i of ids) { const sc = eval7(hands[i].concat(b)).score; if (sc > best) { best = sc; w = [i]; } else if (sc === best) w.push(i); } w.forEach(i => win[i] += 1 / w.length); n++; };
+  if (need === 0) score(board);
+  else if (need === 1) for (const a of rest) score(board.concat([a]));
+  else if (need === 2) for (let x = 0; x < rest.length; x++) for (let y = x + 1; y < rest.length; y++) score(board.concat([rest[x], rest[y]]));
+  else for (let it = 0; it < 1500; it++) { const r = rest.slice(); for (let k = 0; k < need; k++) { const j = k + Math.floor(Math.random() * (r.length - k)); [r[k], r[j]] = [r[j], r[k]]; } score(board.concat(r.slice(0, need))); }
+  const out = {}; ids.forEach(i => out[i] = Math.round(win[i] / n * 100)); return out;
+}
 // ---------- bots ----------
 function equity(hole, board, opp, iters) {
   const used = new Set(hole.concat(board));
@@ -762,7 +783,7 @@ function refreshHome() {
 }
 
 // ================== SETUP ==================
-const setup = { fmt: 'hu', stack: 1500, mins: 5, turn: 25, players: 2, local: false };
+const setup = { fmt: 'hu', stack: 1500, mins: 5, turn: 10, tb: 0, players: 2, local: false };
 function renderSetup() {
   document.querySelectorAll('#fmt-pick .fmt').forEach(b => b.classList.toggle('on', b.dataset.f === setup.fmt));
   const spin = setup.fmt === 'spin';
@@ -770,6 +791,7 @@ function renderSetup() {
   const max = FORMATS[setup.fmt].max;
   if (setup.fmt === 'hu') setup.players = 2; else if (spin) setup.players = 3; else setup.players = Math.min(Math.max(setup.players, 3), max);
   $('#opt-bots').classList.toggle('hidden', !setup.local || max <= 3);
+  $('#opt-tb').classList.toggle('hidden', !setup.turn);
   let sp = ''; for (let k = 3; k <= max; k++) sp += `<button data-v="${k}">${k}</button>`;
   $('#seg-players').innerHTML = sp;
   document.querySelectorAll('#scr-setup .seg').forEach(seg => {
@@ -805,7 +827,7 @@ function addBot() { if (!T || T.status !== 'lobby') return; if (!addSeat(T, 'bot
 async function createTable() {
   const buyin = Math.max(0, parseInt($('#in-buyin').value, 10) || 0);
   code = setup.local ? '' : Array.from({ length: 4 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[randInt(32)]).join('');
-  T = newTable({ fmt: setup.fmt, stack: setup.stack, mins: setup.mins, turn: setup.turn, buyin, code });
+  T = newTable({ fmt: setup.fmt, stack: setup.stack, mins: setup.mins, turn: setup.turn, tb: setup.tb, buyin, code });
   T.hostId = myId; T.ep = 0;
   S = {}; peerOf = {}; pubOf = {}; lastQ = {}; kicked = new Set(); encCache = {};
   addSeat(T, myId, myName, false); T.seats[0].mk = prefs.muck ? 1 : 0;
@@ -890,12 +912,12 @@ function hostPeers(ch) {
         lastShow[id] = +pr.show.q;
         if (showCards(si, pr.show.n)) { changed = true; }
       }
-      if (pr.back && pr.back > (lastBack[id] || 0)) { lastBack[id] = pr.back; if (T.seats[si].aw) { T.seats[si].aw = 0; changed = true; } }
+      if (pr.back && pr.back > (lastBack[id] || 0)) { lastBack[id] = pr.back; if (T.seats[si].aw) { T.seats[si].aw = 0; T.seats[si].to = 0; changed = true; } }
       const a = pr.act;
       if (a && typeof a === 'object' && +a.q > (lastQ[id] || 0)) {
         lastQ[id] = +a.q;
         if (T.status === 'play' && T.hand && a.n === T.hand.n && T.hand.turn === si && !T.paused) {
-          T.seats[si].aw = 0;
+          T.seats[si].aw = 0; T.seats[si].to = 0;
           if (doAct( si, String(a.a), +a.x || 0)) { changed = false; afterChange(); continue; }
         }
       }
@@ -995,7 +1017,7 @@ setInterval(() => {
       if (!s.b && !s.aw) {
         if (H.tl > 0) H.tl -= dt;
         else if (s.tb > 0) { if (!H.tbOn) { H.tbOn = 1; publish(); } s.tb = Math.max(0, s.tb - dt); }
-        else { const L = legal(T, H.turn); s.aw = 1; doAct( H.turn, L.canCheck ? 'check' : 'fold'); afterChange(); }
+        else { const L = legal(T, H.turn); s.to = (s.to || 0) + 1; if (s.to >= 2) s.aw = 1; doAct(H.turn, L.canCheck ? 'check' : 'fold'); afterChange(); }
       }
     }
     if (R && Date.now() - lastPubAt > 3000) publish();
@@ -1009,7 +1031,7 @@ let lastHb = 0;
 function hostAction(a, x) {
   const i = T.seats.findIndex(s => s.id === myId);
   if (i < 0 || T.paused) return;
-  T.seats[i].aw = 0;
+  T.seats[i].aw = 0; T.seats[i].to = 0;
   if (doAct( i, a, x)) afterChange();
 }
 function refreshView() {
@@ -1175,6 +1197,7 @@ function winComment(T0, H, fmtAmt, pills) {
   return H.res.map((r, k) => {
     const who = r.w.map(nm).join(' & ');
     const pot = k === 0 ? 'the pot' : (H.res.length > 2 ? 'side pot ' + k : 'the side pot');
+    if (sd && !r.h && k > 0) return `${who} gets ${fmtAmt(r.amt)} back (uncalled bet)`;
     if (!sd || !r.h) return `${who} win${r.w.length > 1 ? '' : 's'} ${pot} (${fmtAmt(r.amt)})${k === 0 && !sd ? ' — no one called' : ''}`;
     const hole = r.w.length === 1 && H.shown[r.w[0]] ? H.shown[r.w[0]] : null;
     const cards = hole ? (pills ? hole.map(cardPill).join('') + ` <small>(${holeWords(hole)})</small>` : holeWords(hole)) : '';
@@ -1218,7 +1241,7 @@ function onState() {
       if (p === 'ca') return sendAction('call');
       if (p === 'f') return sendAction(L.canCheck ? 'check' : 'fold');
     }
-    beep(880, 0.12); setTimeout(() => beep(1175, 0.12), 120);
+    lastCountBeep = 0; beep(880, 0.12); setTimeout(() => beep(1175, 0.12), 120);
   }
   const was = prevStatus;
   prevStatus = T0.status;
@@ -1241,7 +1264,7 @@ function renderLobby() {
   $('#lob-list').innerHTML = T0.seats.map(s => `<div class="pl"><div class="av" style="background:${avColor(s.id)}">${s.b ? '🤖' : esc(initials(s.n))}</div>
     <div class="grow">${esc(s.n)}${s.id === myId ? ' <span class="note">(you)</span>' : ''}${s.b ? ' <span class="note">bot</span>' : ''}</div>
     ${host && s.id !== myId ? `<button class="x" data-kick="${esc(s.id)}">×</button>` : ''}</div>`).join('');
-  $('#lob-set').textContent = `Stack ${T0.set.stack.toLocaleString('en-US')} · blinds up every ${T0.set.mins} min · timer ${T0.set.turn ? T0.set.turn + 's' : 'off'}` + (T0.set.buyin ? ` · buy-in Rs ${T0.set.buyin}` : '');
+  $('#lob-set').textContent = `Stack ${T0.set.stack.toLocaleString('en-US')} · blinds up every ${T0.set.mins} min · ${T0.set.turn ? T0.set.turn + 's to act' + (T0.set.tb ? ' + ' + T0.set.tb + 's time bank' : '') : 'no timer'}` + (T0.set.buyin ? ` · buy-in Rs ${T0.set.buyin}` : '');
   $('#lob-host').classList.toggle('hidden', !host);
   $('#b-start').disabled = T0.seats.length < 2;
   $('#b-addbot').disabled = T0.seats.length >= f.max;
@@ -1314,7 +1337,7 @@ function bobTalk(T0, H) {
   else if (H) {
     if (H.ph === 'deal' && H.tk) t = `New dealer phone: ${T0.seats.find(x => x.id === T0.hostId) ? T0.seats.find(x => x.id === T0.hostId).n : '?'}. ` + (H.tk === 2 ? 'Last hand cancelled — chips returned. ' : '') + 'Shuffle up and deal 🃏';
     else if (H.ph === 'deal') t = (H.lvUp ? `Blinds are up: ${H.bl[0].toLocaleString('en-US')}/${H.bl[1].toLocaleString('en-US')}. ` : (H.n === 1 ? 'Good luck everyone! ' : '')) + 'Shuffle up and deal 🃏';
-    else if (H.ph === 'run') t = 'All in! Let\'s run it out…';
+    else if (H.ph === 'run') t = H.allinShow && H.board.length === 0 ? 'All in and called! Cards face up 🔥 Let\'s run it out…' : 'All in! Cards face up — dealing the rest…';
     else if (H.ph === 'done') { const r = H.res && H.res[0]; t = r ? (r.w.length > 1 ? 'We have a split pot!' : `Pot goes to ${nm(r.w[0])} 👏`) : ''; if (H.muck && H.muck.length) t += ` ${H.muck.map(nm).join(' & ')} muck${H.muck.length > 1 ? '' : 's'}.`; }
     else {
       const street = ['', 'Here\'s the flop. ', 'The turn. ', 'The river. '][H.st];
@@ -1365,10 +1388,12 @@ function renderSeats() {
     const last = H && H.last && H.last.i === i && H.ph === 'bet' && H.last.st === H.st ? H.last.a : (H && H.allin[i] && !H.fold[i] ? 'allin' : '');
     const tag = last ? `<div class="tag ${last}">${last === 'allin' ? 'ALL-IN' : last}</div>` : '';
     const tb = turn && T0.set.turn ? `<div class="tbar${H.tbOn ? ' tb' : ''}" id="tbar"><i></i></div>` : '';
+    const eqv = H && H.allinShow && H.ph === 'run' && H.shown && H.shown[i] ? eqFor(H)[i] : undefined;
+    const eqb = eqv !== undefined ? `<div class="eq">${eqv}%</div>` : '';
     const bub = bubbles[s.id] && bubbles[s.id].until > Date.now() ? `<div class="bubble">${esc(bubbles[s.id].m)}</div>` : '';
     const stk = s.o ? (s.pl ? ordinal(s.pl) : 'Out') : (H && H.allin[i] && s.s === 0 && !H.res ? 'ALL-IN' : money(s.s, T0));
     h += `<div class="${cls}" data-sid="${esc(s.id)}" style="left:${p.x}%;top:${p.y}%">${bub}<div class="mc">${mc}</div>
-      <div class="plate">${tag}<div class="nm">${s.b ? '<span class="bot-i">🤖</span>' : ''}${esc(s.n)}</div><div class="stk">${stk}</div>${s.aw ? '<div class="away">SITTING OUT</div>' : ''}${tb}</div>
+      <div class="plate">${tag}<div class="nm">${s.b ? '<span class="bot-i">🤖</span>' : ''}${esc(s.n)}</div><div class="stk">${stk}</div>${s.aw ? '<div class="away">SITTING OUT</div>' : ''}${tb}${eqb}</div>
       ${H && H.d === i && !s.o ? '<div class="dbtn">D</div>' : ''}</div>`;
     if (H && H.bets[i]) {
       const bx = 50 + (p.x - 50) * 0.68, by = 50 + (p.y - 50) * 0.62;
@@ -1417,6 +1442,8 @@ function openStatsTable() {
   $('#sheet').querySelectorAll('tr[data-sid]').forEach(tr => tr.onclick = () => openPlayerStats(tr.dataset.sid));
   $('#st-back').onclick = () => T0.status === 'over' ? renderOver() : closeSheet();
 }
+let eqCache = { k: '', v: {} };
+function eqFor(H) { const k = H.n + ':' + H.board.join(','); if (eqCache.k !== k) eqCache = { k, v: allinEquity(H.shown, H.board) }; return eqCache.v; }
 const ordinal = n => n + (['th', 'st', 'nd', 'rd'][(n % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][n % 100] || 'th');
 function preflopLabel(h) {
   const a = Math.max(h[0] % 13, h[1] % 13), b = Math.min(h[0] % 13, h[1] % 13);
@@ -1461,7 +1488,7 @@ function renderActions(force) {
     const presets = [['Min', L.minTo], ['½ Pot', pv(.5)], ['¾ Pot', pv(.75)], ['Pot', pv(1)], ['All-in', L.maxTo]];
     const verb = L.cur === 0 ? 'Bet' : 'Raise to';
     const step = Math.max(1, BB / 2);
-    el.innerHTML = (L.canRaise && L.maxTo > L.minTo ? `<div class="rpanel"><div class="presets">${presets.map(([t, v]) => `<button data-v="${v}" class="${v === raiseTo ? 'on' : ''}">${t}</button>`).join('')}</div>
+    el.innerHTML = (T0.set.turn ? `<div class="mytime" id="mytime"></div>` : '') + (L.canRaise && L.maxTo > L.minTo ? `<div class="rpanel"><div class="presets">${presets.map(([t, v]) => `<button data-v="${v}" class="${v === raiseTo ? 'on' : ''}">${t}</button>`).join('')}</div>
       <div class="slrow"><button class="st" id="r-m">−</button><input type="range" id="r-sl" min="${L.minTo}" max="${L.maxTo}" step="${step}" value="${raiseTo}"><button class="st" id="r-p">+</button><div class="amt" id="r-amt">${money(raiseTo, T0)}</div></div></div>` : '') +
       `<div class="abtns"><button class="abtn a-fold" id="a-f">Fold</button>
        <button class="abtn a-call" id="a-c">${L.canCheck ? 'Check' : (L.toCall >= T0.seats[me].s ? 'Call all-in' : 'Call')}${L.canCheck ? '' : `<small>${money(L.toCall, T0)}</small>`}</button>
@@ -1502,7 +1529,7 @@ function showMine() {
 }
 function imBack() {
   if (mode === 'client') R.presence({ back: Date.now() }).catch(() => {});
-  else { const i = mySeat(); if (i >= 0) { T.seats[i].aw = 0; afterChange(); } }
+  else { const i = mySeat(); if (i >= 0) { T.seats[i].aw = 0; T.seats[i].to = 0; afterChange(); } }
   toast('Welcome back!');
 }
 function renderEmotes() {
@@ -1511,6 +1538,7 @@ function renderEmotes() {
   el.addEventListener('click', e => { const b = e.target.closest('[data-m]'); if (b) say(b.dataset.m); });
 }
 function lvlLeftNow() { const T0 = view.T; if (!T0) return 0; return view.live || T0.paused ? T0.lvlLeft : T0.lvlLeft - (performance.now() - view.recv); }
+let lastCountBeep = 0;
 function updateClocks() {
   if (!inTable || !view.T || view.T.status !== 'play') return;
   const T0 = view.T, H = T0.hand, c = $('#lvlclk');
@@ -1522,6 +1550,13 @@ function updateClocks() {
     if (H.tbOn) { const s = T0.seats[H.turn]; pct = Math.max(0, (s.tb - el) / (T0.set.tb * 1000)); }
     else pct = Math.max(0, (H.tl - el) / (T0.set.turn * 1000));
     tb.firstChild.style.width = (pct * 100).toFixed(1) + '%';
+    const mt = $('#mytime');
+    if (mt && H.turn === mySeat()) {
+      const left = Math.max(0, H.tbOn ? T0.seats[H.turn].tb - el : H.tl - el), secs = Math.ceil(left / 1000);
+      mt.textContent = (H.tbOn ? '⏳ Time bank ' : '⏱ ') + secs + 's to act';
+      mt.classList.toggle('hot', secs <= 3);
+      if (secs <= 3 && secs > 0 && secs !== lastCountBeep) { lastCountBeep = secs; beep(secs === 1 ? 1100 : 900, 0.07, 0.05); }
+    }
   }
   if (pendingAct && Date.now() - pendingAct.at > 4000) { pendingAct = null; renderActions(true); }
 }
