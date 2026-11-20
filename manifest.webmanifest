@@ -1,0 +1,29 @@
+{
+ "name": "KingKER \u2014 Texas Hold'em",
+ "short_name": "KingKER",
+ "start_url": "./",
+ "scope": "./",
+ "display": "standalone",
+ "orientation": "portrait",
+ "background_color": "#0a100e",
+ "theme_color": "#0a100e",
+ "description": "Texas Hold'em with your friends \u2014 Heads-Up & Sit & Go",
+ "icons": [
+  {
+   "src": "icon-192.png",
+   "sizes": "192x192",
+   "type": "image/png"
+  },
+  {
+   "src": "icon-512.png",
+   "sizes": "512x512",
+   "type": "image/png"
+  },
+  {
+   "src": "icon-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "maskable"
+  }
+ ]
+}
