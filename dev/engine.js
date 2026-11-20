@@ -89,20 +89,24 @@ function newTable(o) {
   const mins = spin ? 2 : o.mins;
   return {
     v: 0, code: o.code || '', fmt: o.fmt, status: 'lobby',
-    set: { stack, mins, turn: o.turn, buyin: o.buyin || 0, tb: o.turn ? (o.tb == null ? 30 : o.tb) : 0 },
+    set: { stack, mins, turn: o.turn, buyin: o.buyin || 0, tb: o.turn ? (o.tb == null ? 30 : o.tb) : 0,
+      ante: spin ? 0 : (o.ante ? 1 : 0),          // antes from level 4
+      rb: spin ? 0 : (o.rb || 0),                 // max rebuys per player: 0 off, 99 unlimited
+      rbl: o.rbl || 4,                            // rebuy period = first N levels
+      ad: spin || !o.rb ? 0 : (o.ad ? 1 : 0) },   // one add-on at the end of the rebuy period
     seats: [], lvl: 0, lvlLeft: mins * 60000, paused: 0, hand: null, hist: 0
   };
 }
 function addSeat(T, id, name, bot) {
   if (T.seats.length >= FORMATS[T.fmt].max) return false;
-  T.seats.push({ id, n: name, s: T.set.stack, b: bot ? 1 : 0, o: 0, pl: 0, tb: T.set.tb * 1000, mk: 1 });
+  T.seats.push({ id, n: name, s: T.set.stack, b: bot ? 1 : 0, o: 0, pl: 0, tb: T.set.tb * 1000, mk: 1, rb: 0, ad: 0 });
   return true;
 }
 function startGame(T, S) {
   const d = T.seats;
   for (let i = d.length - 1; i > 0; i--) { const j = randInt(i + 1); [d[i], d[j]] = [d[j], d[i]]; }
-  d.forEach(s => { s.s = T.set.stack; s.o = 0; s.pl = 0; s.tb = T.set.tb * 1000; });
-  T.status = 'play'; T.lvl = startLevelIdx(T.set.stack); T.lvlLeft = T.set.mins * 60000; T.hand = null; T.paused = 0;
+  d.forEach(s => { s.s = T.set.stack; s.o = 0; s.pl = 0; s.tb = T.set.tb * 1000; s.rb = 0; s.ad = 0; s.rbp = 0; s.wl = 0; });
+  T.status = 'play'; T.addonDone = 0; T.brk = null; T.lvl = startLevelIdx(T.set.stack); T.lvlLeft = T.set.mins * 60000; T.hand = null; T.paused = 0;
   startHand(T, S);
 }
 function put(T, i, amt) {
@@ -138,6 +142,8 @@ function startHand(T, S) {
   if (cnt === 2) { sb = d; bb = nextIdx(T, d, alive); } else { sb = nextIdx(T, d, alive); bb = nextIdx(T, sb, alive); }
   const [SB, BB] = blindsOf(T);
   H.sb = sb; H.bb = bb; H.bl = [SB, BB];
+  H.ante = anteOf(T);
+  if (H.ante) for (const j of order0(T, sb)) { const s = T.seats[j], a = Math.min(H.ante, s.s); s.s -= a; H.tot[j] += a; if (s.s === 0) H.allin[j] = 1; }
   put(T, sb, SB); put(T, bb, BB);
   H.cur = BB; H.minR = BB;
   S.deck = shuffled(); S.holes = {};
@@ -245,20 +251,52 @@ function showdown(T, S) {
   }
   if (live.length < 2) { H.shown = null; H.muck = null; }
 }
+// ---- structure helpers: antes, rebuys, add-on ----
+const REBUY_WINDOW = 15000;
+function anteOf(T) { if (!T.set.ante) return 0; const st = startLevelIdx(T.set.stack); if (T.lvl < st + 3) return 0; return Math.max(1, Math.round(blindsOf(T)[1] / 10)); }
+function inRebuyPeriod(T) { return !!T.set.rb && T.lvl < startLevelIdx(T.set.stack) + T.set.rbl; }
+function canRebuy(T, i) { const s = T.seats[i]; return inRebuyPeriod(T) && s.o !== 1 && (s.rb || 0) < T.set.rb && !s.rbp && (s.o === 2 || s.s <= T.set.stack); }
+function order0(T, from) { const out = []; for (let k = 0; k < T.seats.length; k++) { const j = (from + k) % T.seats.length; if (!T.seats[j].o) out.push(j); } return out; }
+// rebuy: busted player (o=2) comes straight back; a player still in gets chips at the start of the next hand
+function doRebuy(T, i) {
+  if (!canRebuy(T, i)) return false;
+  const s = T.seats[i];
+  if (s.o === 2) { s.o = 0; s.s = T.set.stack; s.wl = 0; s.rb = (s.rb || 0) + 1; }
+  else s.rbp = 1;
+  return true;
+}
+function applyPendingRebuys(T) { T.seats.forEach(s => { if (s.rbp && !s.o) { s.s += T.set.stack; s.rb = (s.rb || 0) + 1; } s.rbp = 0; }); }
+function doAddon(T, i) { const s = T.seats[i]; if (!T.brk || s.o || s.ad) return false; s.s += T.set.stack; s.ad = 1; return true; }
+// final elimination with correct finishing places (bigger stack at the start of the hand finishes higher)
+function eliminate(T, idxs, H) {
+  if (!idxs.length) return;
+  const cnt = T.seats.filter(s => s.o !== 1).length;
+  idxs.sort((a, b) => (H ? H.start[b] - H.start[a] : 0)).forEach((i, k) => { const s = T.seats[i]; s.o = 1; s.wl = 0; s.pl = cnt - idxs.length + 1 + k; });
+}
+function checkOver(T) {
+  const left = T.seats.map((s, i) => i).filter(i => T.seats[i].o !== 1);
+  if (left.length <= 1) { if (left.length) { T.seats[left[0]].pl = 1; T.seats[left[0]].o = 0; } T.status = 'over'; return true; }
+  return false;
+}
+function activeCount(T) { return T.seats.filter(s => !s.o).length; }
 function finishHand(T) {
   const H = T.hand;
+  // a rebuy requested during the hand is honoured even if the player then busted
+  T.seats.forEach(x => { if (!x.o && x.rbp && x.s === 0) { x.s = T.set.stack; x.rb = (x.rb || 0) + 1; x.rbp = 0; } });
   const busted = aliveIdx(T).filter(i => T.seats[i].s === 0);
-  const remain = aliveIdx(T).length - busted.length;
-  busted.sort((a, b) => H.start[b] - H.start[a]).forEach((i, k) => { T.seats[i].o = 1; T.seats[i].pl = remain + 1 + k; });
-  if (remain <= 1) {
-    const w = aliveIdx(T)[0]; if (w !== undefined) T.seats[w].pl = 1;
-    T.status = 'over'; return 'over';
-  }
+  const waitR = busted.filter(i => canRebuy(T, i));          // still inside the rebuy period: 15 s to rebuy
+  waitR.forEach(i => { T.seats[i].o = 2; T.seats[i].wl = REBUY_WINDOW; T.seats[i].rbp = 0; });
+  eliminate(T, busted.filter(i => !waitR.includes(i)), H);
+  if (checkOver(T)) return 'over';
   if (T.lvlLeft <= 0) { T.lvl++; T.lvlLeft = T.set.mins * 60000; }
+  if (activeCount(T) < 2) return 'wait';                     // e.g. heads-up bust: wait for the rebuy decision
   return 'next';
 }
+// rebuy window ran out (or the player said no)
+function rebuyExpired(T, i) { const s = T.seats[i]; if (s.o !== 2) return false; eliminate(T, [i], null); checkOver(T); return true; }
+function entriesOf(T) { return T.seats.reduce((a, s) => a + 1 + (s.rb || 0) + (s.ad || 0), 0); }
 function payouts(T) {
-  const n = T.seats.length, pool = (T.set.buyin || 0) * n;
+  const n = T.seats.length, pool = (T.set.buyin || 0) * entriesOf(T);
   const pct = n <= 3 ? [100] : n <= 5 ? [65, 35] : [50, 30, 20];
   return { pool, pct, amt: pct.map(p => Math.round(pool * p / 100)) };
 }
@@ -321,4 +359,4 @@ function botDecide(T, i, hole) {
   return { a: 'fold' };
 }
 /*ENGINE END*/
-if (typeof module !== 'undefined') module.exports = { eval7, handLabel, newTable, addSeat, startGame, startHand, act, endStreet, finishHand, legal, botDecide, payouts, allinEquity, FORMATS, BLINDS };
+if (typeof module !== 'undefined') module.exports = { eval7, handLabel, newTable, addSeat, startGame, startHand, act, endStreet, finishHand, legal, botDecide, payouts, allinEquity, FORMATS, BLINDS, doRebuy, doAddon, applyPendingRebuys, rebuyExpired, canRebuy, inRebuyPeriod, activeCount, anteOf, startLevelIdx, entriesOf };

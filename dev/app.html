@@ -156,6 +156,7 @@ input{font-family:inherit}
 .seat.turn .plate{border-color:var(--gold);box-shadow:0 0 0 2px rgba(226,179,80,.35),0 0 18px rgba(226,179,80,.45)}
 .seat.fold{opacity:.5}
 .seat.out{opacity:.28}
+.seat.wr{opacity:.7}.seat.wr .plate{border-style:dashed;border-color:var(--gold2)}
 .seat.win .plate{border-color:var(--green);box-shadow:0 0 16px rgba(31,164,99,.7)}
 .seat.me .plate{background:linear-gradient(180deg,#2b2614,#17140b);border-color:#6f5a2a}
 .tbar{position:absolute;left:6px;right:6px;bottom:-5px;height:4px;border-radius:3px;background:rgba(0,0,0,.6);overflow:hidden;z-index:3}
@@ -289,9 +290,16 @@ input{font-family:inherit}
   <div id="opt-stack"><p class="lbl">Starting stack</p><div class="seg" data-k="stack"><button data-v="1500">1,500</button><button data-v="3000">3,000</button><button data-v="5000">5,000</button><button data-v="10000">10,000</button></div></div>
   <div id="opt-mins"><p class="lbl">Blinds go up every</p><div class="seg" data-k="mins"><button data-v="3">3 min</button><button data-v="5">5 min</button><button data-v="8">8 min</button><button data-v="12">12 min</button><button data-v="15">15 min</button></div></div>
   <div><p class="lbl">Time to act</p><div class="seg" data-k="turn"><button data-v="10">10s</button><button data-v="15">15s</button><button data-v="25">25s</button><button data-v="40">40s</button><button data-v="0">Off</button></div></div>
+  <div id="opt-struct">
+    <p class="lbl">Antes</p><div class="seg" data-k="ante"><button data-v="0">Off</button><button data-v="1">From level 4</button></div>
+    <p class="lbl" style="margin-top:14px">Rebuys per player</p><div class="seg" data-k="rb"><button data-v="0">Off</button><button data-v="1">1</button><button data-v="2">2</button><button data-v="99">Unlimited</button></div>
+    <div id="opt-rbl"><p class="lbl" style="margin-top:14px">Rebuy period</p><div class="seg" data-k="rbl"><button data-v="2">First 2 levels</button><button data-v="4">First 4</button><button data-v="6">First 6</button></div>
+    <p class="lbl" style="margin-top:14px">Add-on at end of rebuy period</p><div class="seg" data-k="ad"><button data-v="0">Off</button><button data-v="1">On</button></div></div>
+    <button class="btn" id="b-struct" style="margin-top:14px">📋 View blind structure</button>
+  </div>
   <div id="opt-tb"><p class="lbl">Extra time bank (once per game)</p><div class="seg" data-k="tb"><button data-v="0">None</button><button data-v="15">15s</button><button data-v="30">30s</button></div></div>
   <div id="opt-bots" class="hidden"><p class="lbl">Players at the table (incl. you)</p><div class="seg" data-k="players" id="seg-players"></div></div>
-  <div><p class="lbl">Buy-in per player · optional</p><input id="in-buyin" class="inp" inputmode="numeric" placeholder="e.g. 200 (Rs) — used to show payouts"></div>
+  <div><p class="lbl">Buy-in per player · optional</p><input id="in-buyin" class="inp" inputmode="numeric" placeholder="e.g. 200 (Rs) — rebuys &amp; add-on cost the same"></div>
   <button class="btn gold" id="b-create" style="margin-top:6px">Create table</button>
 </section>
 
@@ -303,6 +311,7 @@ input{font-family:inherit}
     <div class="code-big" id="lob-code">----</div>
     <p class="note" id="lob-hint">Friends open this app, enter the code and tap Join.</p>
     <button class="btn" id="b-copy" style="margin-top:10px">📨 Invite friends</button>
+    <button class="btn" id="b-lstruct" style="margin-top:8px">📋 Blind structure</button>
   </div>
   <div class="card-box">
     <p class="lbl" id="lob-count">Players</p>
@@ -468,7 +477,7 @@ function refreshHome() {
 }
 
 // ================== SETUP ==================
-const setup = { fmt: 'hu', stack: 1500, mins: 5, turn: 10, tb: 0, players: 2, local: false };
+const setup = { fmt: 'hu', stack: 1500, mins: 5, turn: 10, tb: 0, ante: 0, rb: 0, rbl: 4, ad: 1, players: 2, local: false };
 function renderSetup() {
   document.querySelectorAll('#fmt-pick .fmt').forEach(b => b.classList.toggle('on', b.dataset.f === setup.fmt));
   const spin = setup.fmt === 'spin';
@@ -477,6 +486,8 @@ function renderSetup() {
   if (setup.fmt === 'hu') setup.players = 2; else if (spin) setup.players = 3; else setup.players = Math.min(Math.max(setup.players, 3), max);
   $('#opt-bots').classList.toggle('hidden', !setup.local || max <= 3);
   $('#opt-tb').classList.toggle('hidden', !setup.turn);
+  $('#opt-struct').classList.toggle('hidden', spin);
+  $('#opt-rbl').classList.toggle('hidden', !setup.rb);
   let sp = ''; for (let k = 3; k <= max; k++) sp += `<button data-v="${k}">${k}</button>`;
   $('#seg-players').innerHTML = sp;
   document.querySelectorAll('#scr-setup .seg').forEach(seg => {
@@ -493,6 +504,7 @@ $('#b-host').onclick = () => { if (needName()) return; setup.local = false; rend
 $('#b-practice').onclick = () => { if (needName()) return; setup.local = true; renderSetup(); show('setup'); };
 $('#b-setup-back').onclick = () => { show('home'); refreshHome(); };
 $('#b-create').onclick = () => createTable();
+$('#b-struct').onclick = () => openStructure({ stack: setup.fmt === 'spin' ? 500 : setup.stack, mins: setup.fmt === 'spin' ? 2 : setup.mins, ante: setup.ante, rb: setup.rb, rbl: setup.rbl, ad: setup.rb ? setup.ad : 0 }, null, true);
 $('#b-join').onclick = () => { if (needName()) return; joinOnline($('#in-code').value); };
 $('#in-code').addEventListener('keydown', e => { if (e.key === 'Enter') $('#b-join').click(); });
 
@@ -512,7 +524,7 @@ function addBot() { if (!T || T.status !== 'lobby') return; if (!addSeat(T, 'bot
 async function createTable() {
   const buyin = Math.max(0, parseInt($('#in-buyin').value, 10) || 0);
   code = setup.local ? '' : Array.from({ length: 4 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[randInt(32)]).join('');
-  T = newTable({ fmt: setup.fmt, stack: setup.stack, mins: setup.mins, turn: setup.turn, tb: setup.tb, buyin, code });
+  T = newTable({ fmt: setup.fmt, stack: setup.stack, mins: setup.mins, turn: setup.turn, tb: setup.tb, ante: setup.ante, rb: setup.rb, rbl: setup.rbl, ad: setup.ad, buyin, code });
   T.hostId = myId; T.ep = 0;
   S = {}; peerOf = {}; pubOf = {}; lastQ = {}; kicked = new Set(); encCache = {};
   addSeat(T, myId, myName, false); T.seats[0].mk = prefs.muck ? 1 : 0;
@@ -597,6 +609,9 @@ function hostPeers(ch) {
         lastShow[id] = +pr.show.q;
         if (showCards(si, pr.show.n)) { changed = true; }
       }
+      if (pr.rbq && +pr.rbq > (lastRb[id] || 0)) { lastRb[id] = +pr.rbq; if (doRebuy(T, si)) changed = true; }
+      if (pr.nrq && +pr.nrq > (lastNr[id] || 0)) { lastNr[id] = +pr.nrq; if (rebuyExpired(T, si)) changed = true; }
+      if (pr.adq && +pr.adq > (lastAd[id] || 0)) { lastAd[id] = +pr.adq; if (doAddon(T, si)) changed = true; }
       if (pr.back && pr.back > (lastBack[id] || 0)) { lastBack[id] = pr.back; if (T.seats[si].aw) { T.seats[si].aw = 0; T.seats[si].to = 0; changed = true; } }
       const a = pr.act;
       if (a && typeof a === 'object' && +a.q > (lastQ[id] || 0)) {
@@ -609,7 +624,7 @@ function hostPeers(ch) {
     } else if (T.status === 'lobby' && pr.sit && !kicked.has(id)) {
       if (addSeat(T, id, cleanName(pr.name) || 'Player', false)) {
         peerOf[id] = p.peer; pubOf[id] = pr.pub && pr.pub.x ? { x: String(pr.pub.x), y: String(pr.pub.y) } : null;
-        lastQ[id] = (pr.act && +pr.act.q) || 0; lastBack[id] = pr.back || 0; lastShow[id] = (pr.show && +pr.show.q) || 0;
+        lastQ[id] = (pr.act && +pr.act.q) || 0; lastBack[id] = pr.back || 0; lastRb[id] = +pr.rbq || 0; lastNr[id] = +pr.nrq || 0; lastAd[id] = +pr.adq || 0; lastShow[id] = (pr.show && +pr.show.q) || 0;
         T.seats[T.seats.length - 1].mk = pr.mk === 0 ? 0 : 1; changed = true;
       } else spect++;
     } else spect++;
@@ -628,6 +643,20 @@ function hostKick(id) { if (T.status !== 'lobby') return; if (!id.startsWith('bo
 // ---------- player stats (host tracks, published in state) ----------
 // T.stats[id] = [hands, vpip, pfr, won, showdowns, showdownsWon, biggestPot, allins]
 let hf = {}, hfN = 0;
+// ---- rebuys / add-on (host side) ----
+function hostNextHand(lvUp) {
+  T.idle = 0; applyPendingRebuys(T);
+  startHand(T, S); beginDeal(lvUp); trackHandStart();
+}
+function botRebuys() { T.seats.forEach((x, i) => { if (x.b && x.o === 2) { if (Math.random() < 0.6) doRebuy(T, i); else rebuyExpired(T, i); } }); }
+function startAddonBreak() {
+  T.addonDone = 1; T.brk = { left: 20000 }; T.idle = 1;
+  T.seats.forEach((x, i) => { if (x.b) doAddon(T, i); });
+}
+function hostRebuy(si) { if (doRebuy(T, si)) { afterChange(); return true; } return false; }
+function hostNoRebuy(si) { if (rebuyExpired(T, si)) { afterChange(); return true; } return false; }
+function hostAddon(si) { if (doAddon(T, si)) { afterChange(); return true; } return false; }
+let lastRb = {}, lastNr = {}, lastAd = {};
 function newGame() { T.stats = {}; T.seats.forEach(s => T.stats[s.id] = [0, 0, 0, 0, 0, 0, 0, 0]); hf = {}; hfN = 0; startGame(T, S); beginDeal(false); trackHandStart(); }
 // Bob shuffles and deals on screen before any action is allowed
 function dealMs(n) { return 1400 + n * 2 * 130 + 500; }
@@ -676,9 +705,13 @@ function schedule() {
   else if (H.ph === 'done') timer = setTimeout(() => {
     if (T.hand !== H || T.paused) return;
     trackHandEnd(H);
-    const lv0 = T.lvl;
+    const lv0 = T.lvl, wasIn = inRebuyPeriod(T);
     const r = finishHand(T);
-    if (r === 'next') { startHand(T, S); beginDeal(T.lvl !== lv0); trackHandStart(); } else { clearTimeout(timer); }
+    botRebuys();
+    if (T.status === 'over') clearTimeout(timer);
+    else if (wasIn && !inRebuyPeriod(T) && T.set.ad && !T.addonDone) startAddonBreak();
+    else if (activeCount(T) >= 2) hostNextHand(T.lvl !== lv0);
+    else T.idle = 1;   // waiting for a rebuy decision
     timerSig = ''; afterChange();
   }, H.shown ? 4800 : 2300);
   else if (H.ph === 'bet' && cs && (cs.b || cs.aw)) {
@@ -705,6 +738,12 @@ setInterval(() => {
         else { const L = legal(T, H.turn); s.to = (s.to || 0) + 1; if (s.to >= 2) s.aw = 1; doAct(H.turn, L.canCheck ? 'check' : 'fold'); afterChange(); }
       }
     }
+    let ch = false;
+    T.seats.forEach((x, i) => { if (x.o === 2) { x.wl -= dt; if (x.wl <= 0) { rebuyExpired(T, i); ch = true; } } });
+    if (T.brk) { T.brk.left -= dt; if (T.brk.left <= 0) { T.brk = null; ch = true; } }
+    if (T.status === 'over') { afterChange(); }
+    else if (T.idle && !T.brk && H && H.ph === 'done' && activeCount(T) >= 2) { hostNextHand(false); afterChange(); }
+    else if (ch) afterChange();
     if (R && Date.now() - lastPubAt > 3000) publish();
   }
   if (R && (mode === 'host' || mode === 'client') && Date.now() - lastHb > 4000) { lastHb = Date.now(); R.presence({ hb: lastHb }).catch(() => {}); }
@@ -761,14 +800,15 @@ function takeOver() {
   T = JSON.parse(JSON.stringify(old)); S = {};
   const oldHost = T.hostId; T.ep = (T.ep || 0) + 1; T.hostId = myId; mode = 'host';
   peerOf = {}; pubOf = {}; kicked = new Set(); encCache = {};
-  for (const p of R.peers()) { const pr = p.presence || {}; if (!pr.id) continue; lastQ[pr.id] = (pr.act && +pr.act.q) || 0; lastShow[pr.id] = (pr.show && +pr.show.q) || 0; lastBack[pr.id] = pr.back || 0; if (pr.pub && pr.pub.x) pubOf[pr.id] = { x: String(pr.pub.x), y: String(pr.pub.y) }; }
+  for (const p of R.peers()) { const pr = p.presence || {}; if (!pr.id) continue; lastRb[pr.id] = +pr.rbq || 0; lastNr[pr.id] = +pr.nrq || 0; lastAd[pr.id] = +pr.adq || 0; lastQ[pr.id] = (pr.act && +pr.act.q) || 0; lastShow[pr.id] = (pr.show && +pr.show.q) || 0; lastBack[pr.id] = pr.back || 0; if (pr.pub && pr.pub.x) pubOf[pr.id] = { x: String(pr.pub.x), y: String(pr.pub.y) }; }
   const oi = T.seats.findIndex(x => x.id === oldHost); if (oi >= 0 && !T.seats[oi].o) T.seats[oi].aw = 1;
   const H = T.hand;
   if (T.status === 'play' && H) {
     let r = 'next';
     if (H.ph === 'done') r = finishHand(T);
     else if (H.start) T.seats.forEach((x, i) => { if (!x.o) x.s = H.start[i]; });
-    if (r === 'next') { startHand(T, S); beginDeal(false); T.hand.tk = H.ph === 'done' ? 1 : 2; trackHandStart(); }
+    if (r === 'next' && activeCount(T) >= 2) { applyPendingRebuys(T); startHand(T, S); beginDeal(false); T.hand.tk = H.ph === 'done' ? 1 : 2; trackHandStart(); }
+    else if (T.status === 'play') T.idle = 1;
   }
   R.presence({ sit: null, act: null, show: null }).catch(() => {});
   timerSig = ''; takingOver = false;
@@ -949,7 +989,7 @@ function renderLobby() {
   $('#lob-list').innerHTML = T0.seats.map(s => `<div class="pl"><div class="av" style="background:${avColor(s.id)}">${s.b ? '🤖' : esc(initials(s.n))}</div>
     <div class="grow">${esc(s.n)}${s.id === myId ? ' <span class="note">(you)</span>' : ''}${s.b ? ' <span class="note">bot</span>' : ''}</div>
     ${host && s.id !== myId ? `<button class="x" data-kick="${esc(s.id)}">×</button>` : ''}</div>`).join('');
-  $('#lob-set').textContent = `Stack ${T0.set.stack.toLocaleString('en-US')} · blinds up every ${T0.set.mins} min · ${T0.set.turn ? T0.set.turn + 's to act' + (T0.set.tb ? ' + ' + T0.set.tb + 's time bank' : '') : 'no timer'}` + (T0.set.buyin ? ` · buy-in Rs ${T0.set.buyin}` : '');
+  $('#lob-set').textContent = `Stack ${T0.set.stack.toLocaleString('en-US')} · blinds up every ${T0.set.mins} min · ${T0.set.turn ? T0.set.turn + 's to act' + (T0.set.tb ? ' + ' + T0.set.tb + 's time bank' : '') : 'no timer'}` + (T0.set.ante ? ' · antes from level 4' : '') + (T0.set.rb ? ` · rebuys ${T0.set.rb === 99 ? 'unlimited' : 'max ' + T0.set.rb} (first ${T0.set.rbl} levels)${T0.set.ad ? ' + add-on' : ''}` : '') + (T0.set.buyin ? ` · buy-in Rs ${T0.set.buyin}` : '');
   $('#lob-host').classList.toggle('hidden', !host);
   $('#b-start').disabled = T0.seats.length < 2;
   $('#b-addbot').disabled = T0.seats.length >= f.max;
@@ -960,6 +1000,7 @@ function renderLobby() {
 }
 $('#lob-list').addEventListener('click', e => { const b = e.target.closest('[data-kick]'); if (b) hostKick(b.dataset.kick); });
 $('#b-addbot').onclick = () => addBot();
+$('#b-lstruct').onclick = () => view.T && openStructure(view.T.set, null, false);
 $('#b-start').onclick = () => { if (T && T.seats.length >= 2) { newGame(); resetLog(); afterChange(); } };
 $('#b-copy').onclick = () => {
   const link = window.KK_SITE ? location.origin + location.pathname + '?t=' + code : '';
@@ -978,10 +1019,10 @@ function seatPos(k, n) {
 function renderGame() {
   const T0 = view.T, H = T0.hand;
   const f = FORMATS[T0.fmt];
-  const [sb, bb] = H ? H.bl : BLINDS[Math.min(T0.lvl, BLINDS.length - 1)];
+  const [sb, bb] = BLINDS[Math.min(T0.lvl, BLINDS.length - 1)];
   const nx = BLINDS[Math.min(T0.lvl + 1, BLINDS.length - 1)];
   $('#lvlbox').innerHTML = `<b>Level ${T0.lvl + 1 - startLevelIdx(T0.set.stack)} · ${sb.toLocaleString('en-US')}/${bb.toLocaleString('en-US')}</b>
-    <div class="sub">${T0.paused ? '⏸ Paused' : `Next ${nx[0].toLocaleString('en-US')}/${nx[1].toLocaleString('en-US')} in <span class="clk" id="lvlclk">${mmss(lvlLeftNow())}</span>`} · Hand #${H ? H.n : 0}</div>`;
+    <div class="sub">${T0.paused ? '⏸ Paused' : `Next ${nx[0].toLocaleString('en-US')}/${nx[1].toLocaleString('en-US')} in <span class="clk" id="lvlclk">${mmss(lvlLeftNow())}</span>`}${H && H.ante ? ' · ante ' + H.ante.toLocaleString('en-US') : ''}${inRebuyPeriod(T0) ? ' · 🔁 rebuys open' : ''} · #${H ? H.n : 0}</div>`;
   $('#tcode').innerHTML = (code ? `#<b>${esc(code)}</b>` : `<b>${esc(f.name)}</b>`) + `<br>${T0.seats.filter(s => !s.o).length}/${T0.seats.length} left${view.spect ? ' · 👁' + view.spect : ''}`;
   let ban = '';
   if (view.hostGone) ban = `<div class="banner">Host disconnected — waiting for them to return…</div>`;
@@ -1005,6 +1046,8 @@ function renderGame() {
   if (H && H.res) {
     msg = winComment(T0, H, k => money(k, T0), true);
   } else if (H && H.ph === 'run') msg = 'All in — running it out';
+  if (T0.brk) msg = '☕ Add-on break — rebuys are now closed';
+  else if (T0.idle && T0.seats.some(x => x.o === 2) && !(H && H.res)) msg = '⏳ Waiting for a rebuy decision…';
   $('#msg').innerHTML = msg;
   bobTalk(T0, H);
   if (H && H.ph === 'deal' && dealAnimN !== H.n) { dealAnimN = H.n; runDealAnim(T0, H); }
@@ -1020,7 +1063,8 @@ function bobTalk(T0, H) {
   if (T0.status === 'over') { const w = T0.seats.find(s => s.pl === 1); t = w ? `🏆 Congratulations ${w.n}!` : 'Game over'; }
   else if (T0.paused) t = 'Taking a short break ☕';
   else if (H) {
-    if (H.ph === 'deal' && H.tk) t = `New dealer phone: ${T0.seats.find(x => x.id === T0.hostId) ? T0.seats.find(x => x.id === T0.hostId).n : '?'}. ` + (H.tk === 2 ? 'Last hand cancelled — chips returned. ' : '') + 'Shuffle up and deal 🃏';
+    if (T0.brk) t = '☕ Add-on break!';
+    else if (H.ph === 'deal' && H.tk) t = `New dealer phone: ${T0.seats.find(x => x.id === T0.hostId) ? T0.seats.find(x => x.id === T0.hostId).n : '?'}. ` + (H.tk === 2 ? 'Last hand cancelled — chips returned. ' : '') + 'Shuffle up and deal 🃏';
     else if (H.ph === 'deal') t = (H.lvUp ? `Blinds are up: ${H.bl[0].toLocaleString('en-US')}/${H.bl[1].toLocaleString('en-US')}. ` : (H.n === 1 ? 'Good luck everyone! ' : '')) + 'Shuffle up and deal 🃏';
     else if (H.ph === 'run') t = H.allinShow && H.board.length === 0 ? 'All in and called! Cards face up 🔥 Let\'s run it out…' : 'All in! Cards face up — dealing the rest…';
     else if (H.ph === 'done') { const r = H.res && H.res[0]; t = r ? (r.w.length > 1 ? 'We have a split pot!' : `Pot goes to ${nm(r.w[0])} 👏`) : ''; if (H.muck && H.muck.length) t += ` ${H.muck.map(nm).join(' & ')} muck${H.muck.length > 1 ? '' : 's'}.`; }
@@ -1063,7 +1107,7 @@ function renderSeats() {
   T0.seats.forEach((s, i) => {
     const k = (i - base + n) % n, p = seatPos(k, n);
     const turn = H && H.ph === 'bet' && H.turn === i;
-    const cls = ['seat', turn ? 'turn' : '', H && H.fold[i] && !s.o ? 'fold' : '', s.o ? 'out' : '', i === me ? 'me' : '', H && H.res && H.res.some(r => r.w.includes(i)) ? 'win' : ''].join(' ');
+    const cls = ['seat', turn ? 'turn' : '', H && H.fold[i] && !s.o ? 'fold' : '', s.o === 1 ? 'out' : s.o === 2 ? 'wr' : '', i === me ? 'me' : '', H && H.res && H.res.some(r => r.w.includes(i)) ? 'win' : ''].join(' ');
     let mc = '';
     if (H && H.shown && H.shown[i] && H.ph !== 'deal') mc = H.shown[i].map(c => cardHTML(c, H.win && H.win[i] ? (H.win[i].includes(c) ? 'hi' : '') : '')).join('');
     else if (H && H.muck && H.muck.includes(i)) mc = '<div class="mucked">MUCK</div>';
@@ -1077,7 +1121,7 @@ function renderSeats() {
     const eqv = H && H.allinShow && H.ph === 'run' && H.shown && H.shown[i] ? eqFor(H)[i] : undefined;
     const eqb = eqv !== undefined ? `<div class="eq">${eqv}%</div>` : '';
     const bub = bubbles[s.id] && bubbles[s.id].until > Date.now() ? `<div class="bubble">${esc(bubbles[s.id].m)}</div>` : '';
-    const stk = s.o ? (s.pl ? ordinal(s.pl) : 'Out') : (H && H.allin[i] && s.s === 0 && !H.res ? 'ALL-IN' : money(s.s, T0));
+    const stk = s.o === 2 ? '🔁 Rebuy?' : s.o ? (s.pl ? ordinal(s.pl) : 'Out') : (H && H.allin[i] && s.s === 0 && !H.res ? 'ALL-IN' : money(s.s, T0));
     h += `<div class="${cls}" data-sid="${esc(s.id)}" style="left:${p.x}%;top:${p.y}%">${bub}<div class="mc">${mc}</div>
       <div class="plate">${tag}<div class="nm">${s.b ? '<span class="bot-i">🤖</span>' : ''}${esc(s.n)}</div><div class="stk">${stk}</div>${s.aw ? '<div class="away">SITTING OUT</div>' : ''}${tb}${eqb}</div>
       ${H && H.d === i && !s.o ? '<div class="dbtn">D</div>' : ''}</div>`;
@@ -1157,12 +1201,20 @@ function renderActions(force) {
   const s = me >= 0 ? T0.seats[me] : null;
   const myTurn = s && H && H.ph === 'bet' && H.turn === me && !T0.paused && !view.hostGone && view.hole;
   const pending = pendingAct && pendingAct.sig === turnSig() && Date.now() - pendingAct.at < 4000;
-  const sig = [turnSig(), myTurn ? 1 : 0, pending ? 1 : 0, pre, s && s.aw, T0.paused, T0.status, view.hostGone, !!view.hole, prefs.bb, H && H.shown && me >= 0 && H.shown[me] ? 1 : 0].join('#');
+  const sig = [turnSig(), myTurn ? 1 : 0, pending ? 1 : 0, pre, s && s.aw, s && s.o, s && s.rbp, s && s.rb, s && s.ad, s && s.s, !!T0.brk, inRebuyPeriod(T0), T0.paused, T0.status, view.hostGone, !!view.hole, prefs.bb, H && H.shown && me >= 0 && H.shown[me] ? 1 : 0].join('#');
   if (sig === actSig && !force) return;
   actSig = sig;
   if (!s) { el.innerHTML = `<div class="ainfo">👁 Watching the game</div>`; return; }
   if (T0.status === 'over') { el.innerHTML = `<button class="btn gold" id="b-res">View results</button>`; $('#b-res').onclick = renderOver; return; }
+  if (s.o === 2) {
+    el.innerHTML = `<div class="mytime" id="rbclk"></div><div class="abtns"><button class="abtn a-fold" id="a-nr">No thanks</button><button class="abtn a-raise" id="a-rb">🔁 Rebuy<small>+${T0.set.stack.toLocaleString('en-US')} chips${costTxt(T0)}</small></button></div>`;
+    $('#a-rb').onclick = reqRebuy; $('#a-nr').onclick = reqNoRebuy; updateClocks(); return;
+  }
   if (s.o) { el.innerHTML = `<div class="ainfo">Eliminated in ${ordinal(s.pl)} place — watching the rest.</div>`; return; }
+  if (T0.brk) {
+    el.innerHTML = `<div class="mytime" id="brkclk"></div>` + (s.ad ? `<div class="ainfo">Add-on taken ✓ (+${T0.set.stack.toLocaleString('en-US')})</div>` : `<div class="abtns"><button class="abtn a-raise" id="a-ad">➕ Take add-on<small>+${T0.set.stack.toLocaleString('en-US')} chips${costTxt(T0)}</small></button></div>`);
+    if ($('#a-ad')) $('#a-ad').onclick = reqAddon; updateClocks(); return;
+  }
   if (s.aw) { el.innerHTML = `<button class="btn gold" id="b-back">I'm back — deal me in</button>`; $('#b-back').onclick = imBack; return; }
   if (!H) { el.innerHTML = ''; return; }
   if (myTurn && pending) { el.innerHTML = `<div class="ainfo">Sending…</div>`; return; }
@@ -1205,8 +1257,16 @@ function renderActions(force) {
     el.innerHTML = `<div class="abtns"><button class="abtn a-call" id="a-show">Show my cards<small>${view.hole.map(c => RANKS[c % 13].replace('T', '10') + '♠♥♦♣'[(c / 13) | 0]).join(' ')}</small></button></div>`;
     $('#a-show').onclick = () => showMine(); return;
   }
+  const rbRow = canRebuy(T0, me) ? `<button class="btn" id="a-vrb" style="margin-top:8px;padding:10px">🔁 Rebuy +${T0.set.stack.toLocaleString('en-US')} at next hand${costTxt(T0)}</button>` : (s.rbp ? `<div class="ainfo" style="padding:6px 0 0">🔁 Rebuy confirmed — chips added at the next hand</div>` : '');
+  el.innerHTML = rbRow ? `<div class="ainfo" style="padding:8px 0 0">${H.fold[me] ? 'Folded — waiting for next hand' : H.allin[me] ? 'You\'re all-in 🤞' : H.ph === 'done' ? 'Next hand coming…' : H.ph === 'deal' ? 'Bob is dealing…' : 'Waiting…'}</div>${rbRow}` : '';
+  if ($('#a-vrb')) { $('#a-vrb').onclick = reqRebuy; return; }
+  if (rbRow) return;
   el.innerHTML = `<div class="ainfo">${H.fold[me] ? 'Folded — waiting for next hand' : H.allin[me] ? 'You\'re all-in 🤞' : H.ph === 'done' ? 'Next hand coming…' : H.ph === 'deal' ? 'Bob is shuffling and dealing…' : 'Waiting…'}</div>`;
 }
+function reqRebuy() { const i = mySeat(); if (mode === 'client') R.presence({ rbq: Date.now() }).catch(() => {}); else hostRebuy(i); toast('Rebuy requested 🔁'); actSig = ''; }
+function reqNoRebuy() { const i = mySeat(); if (mode === 'client') R.presence({ nrq: Date.now() }).catch(() => {}); else hostNoRebuy(i); }
+function reqAddon() { const i = mySeat(); if (mode === 'client') R.presence({ adq: Date.now() }).catch(() => {}); else hostAddon(i); toast('Add-on requested ➕'); actSig = ''; }
+const costTxt = T0 => T0.set.buyin ? ` · Rs ${T0.set.buyin.toLocaleString('en-US')}` : '';
 function showMine() {
   const H = view.T.hand; if (!H) return;
   if (mode === 'client') R.presence({ show: { n: H.n, q: Date.now() } }).catch(() => {});
@@ -1226,6 +1286,11 @@ function renderEmotes() {
 function lvlLeftNow() { const T0 = view.T; if (!T0) return 0; return view.live || T0.paused ? T0.lvlLeft : T0.lvlLeft - (performance.now() - view.recv); }
 let lastCountBeep = 0;
 function updateClocks() {
+  if (inTable && view.T) {
+    const el2 = view.live || view.T.paused ? 0 : performance.now() - view.recv, me = mySeat();
+    const rc = $('#rbclk'); if (rc && me >= 0) rc.textContent = '💥 Busted! Rebuy within ' + Math.max(0, Math.ceil((view.T.seats[me].wl - el2) / 1000)) + 's';
+    const bc = $('#brkclk'); if (bc && view.T.brk) bc.textContent = '☕ Add-on break · ' + Math.max(0, Math.ceil((view.T.brk.left - el2) / 1000)) + 's';
+  }
   if (!inTable || !view.T || view.T.status !== 'play') return;
   const T0 = view.T, H = T0.hand, c = $('#lvlclk');
   if (c) c.textContent = mmss(lvlLeftNow());
@@ -1254,7 +1319,7 @@ function renderOver() {
   const w = order[0];
   const host = mode === 'host' || mode === 'local';
   openSheet('over', `<div class="res-top"><div class="tro">🏆</div><h2>${esc(w.n)} wins!</h2><p class="note">${esc(FORMATS[T0.fmt].name)} · ${T0.hand ? T0.hand.n : 0} hands${po.pool ? ` · prize pool Rs ${po.pool.toLocaleString('en-US')}` : ''}</p></div>
-    ${order.map((s, k) => `<div class="place ${k === 0 ? 'first' : ''}"><div class="pn">${ordinal(s.pl)}</div><div class="pname">${s.b ? '🤖 ' : ''}${esc(s.n)}${s.id === myId ? ' (you)' : ''}</div>${po.pool && po.amt[k] ? `<div class="prize">Rs ${po.amt[k].toLocaleString('en-US')}</div>` : ''}</div>`).join('')}
+    ${order.map((s, k) => `<div class="place ${k === 0 ? 'first' : ''}"><div class="pn">${ordinal(s.pl)}</div><div class="pname">${s.b ? '🤖 ' : ''}${esc(s.n)}${s.id === myId ? ' (you)' : ''}${s.rb || s.ad ? `<div class="note" style="font-size:11.5px">${s.rb ? s.rb + ' rebuy' + (s.rb > 1 ? 's' : '') : ''}${s.rb && s.ad ? ' · ' : ''}${s.ad ? 'add-on' : ''}</div>` : ''}</div>${po.pool && po.amt[k] ? `<div class="prize">Rs ${po.amt[k].toLocaleString('en-US')}</div>` : ''}</div>`).join('')}
     <div class="row" style="margin-top:14px">${host ? '<button class="btn gold" id="b-again">Play again</button>' : ''}<button class="btn" id="b-stats2">📊 Stats</button><button class="btn" id="b-hist2">History</button></div>
     <button class="btn" id="b-leave2" style="margin-top:10px">Leave table</button>
     ${host ? '' : '<p class="note" style="text-align:center">The host can start a rematch.</p>'}`);
@@ -1279,7 +1344,7 @@ function recordCareer(T0) {
   c.g++; if (me.pl === 1) c.w++; if (me.pl <= po.pct.length) c.itm++;
   c.pls += me.pl; c.h += r[0]; c.vp += r[1]; c.pf += r[2]; c.hw += r[3]; c.big = Math.max(c.big, r[6]);
   if (T0.fmt === 'hu') { c.hu++; if (me.pl === 1) c.huw++; }
-  c.net = (c.net || 0) + (po.amt[me.pl - 1] || 0) - (T0.set.buyin || 0);
+  c.net = (c.net || 0) + (po.amt[me.pl - 1] || 0) - (T0.set.buyin || 0) * (1 + (me.rb || 0) + (me.ad || 0));
   LS.set('aic_career', c);
 }
 function careerHTML() {
@@ -1291,12 +1356,30 @@ function careerHTML() {
   </div><p class="note" style="margin:10px 0 0">${c.h.toLocaleString('en-US')} hands · biggest pot ${c.big.toLocaleString('en-US')} · saved on this device</p>`;
 }
 
+// ================== BLIND STRUCTURE ==================
+function openStructure(set, curLvl, fromSetup) {
+  const st = startLevelIdx(set.stack), rows = [];
+  for (let k = 0; k < 15 && st + k < BLINDS.length; k++) {
+    const L = st + k, [sb, bb] = BLINDS[L], ante = set.ante && k >= 3 ? Math.max(1, Math.round(bb / 10)) : 0;
+    const now = curLvl === L, rebuy = set.rb && k < set.rbl;
+    rows.push(`<tr style="border-top:1px solid var(--line);${now ? 'background:#2a2412;' : ''}"><td style="padding:8px 4px;font-weight:800">${k + 1}${now ? ' ◀' : ''}</td><td>${sb.toLocaleString('en-US')} / ${bb.toLocaleString('en-US')}</td><td>${ante ? ante.toLocaleString('en-US') : '–'}</td><td>${set.mins} min</td><td>${rebuy ? '🔁' : ''}</td></tr>`);
+    if (set.rb && set.ad && k === set.rbl - 1) rows.push(`<tr><td colspan="5" style="padding:7px 4px;color:var(--gold);font-weight:700">☕ Add-on break (20 s) — rebuys close</td></tr>`);
+  }
+  openSheet('struct', `<h2>📋 Blind structure</h2>
+    <p class="note" style="margin-top:-6px">Starting stack ${set.stack.toLocaleString('en-US')} · ${set.mins}-minute levels${set.ante ? ' · antes from level 4' : ''}${set.rb ? ` · rebuys ${set.rb === 99 ? 'unlimited' : 'max ' + set.rb} in the first ${set.rbl} levels (🔁)${set.ad ? ' + add-on' : ''}` : ''}</p>
+    <table style="width:100%;border-collapse:collapse;font-size:14px;text-align:left"><tr style="color:var(--mute)"><th style="padding:6px 4px">Level</th><th>Blinds</th><th>Ante</th><th>Time</th><th></th></tr>${rows.join('')}</table>
+    ${set.rb ? `<p class="note" style="margin-top:10px">🔁 <b>Rebuy:</b> bust out in these levels and you get 15 seconds to buy back in for a fresh ${set.stack.toLocaleString('en-US')} stack. You can also rebuy between hands while at or below ${set.stack.toLocaleString('en-US')}.${set.ad ? ` <b>Add-on:</b> at the break everyone still in can add ${set.stack.toLocaleString('en-US')} chips once.` : ''} Each costs the same as the buy-in.</p>` : ''}
+    <button class="btn" id="st-close" style="margin-top:8px">${fromSetup ? 'Back' : 'Close'}</button>`);
+  $('#st-close').onclick = closeSheet;
+}
+
 // ================== MENU ==================
 $('#b-menu').onclick = () => openMenu();
 function openMenu() {
   const host = mode === 'host' || mode === 'local';
   const T0 = view.T;
   openSheet('menu', `<h2>Menu</h2>
+    <button class="mitem" id="m-struct">📋 Blind structure <span>›</span></button>
     <button class="mitem" id="m-stats">📊 Player stats <span>›</span></button>
     <button class="mitem" id="m-hist">📜 Hand history <span>›</span></button>
     <button class="mitem" id="m-rank">🃏 Hand rankings <span>›</span></button>
@@ -1309,6 +1392,7 @@ function openMenu() {
     <button class="btn" id="m-close" style="margin-top:6px">Close</button>`);
   $('#m-hist').onclick = openHistory;
   $('#m-stats').onclick = openStatsTable;
+  $('#m-struct').onclick = () => openStructure(view.T.set, view.T.lvl, false);
   $('#m-rank').onclick = openRanks;
   $('#m-bb').onclick = () => { prefs.bb = !prefs.bb; savePrefs(); render(); openMenu(); };
   $('#m-four').onclick = () => { prefs.four = !prefs.four; savePrefs(); openMenu(); };
@@ -1461,7 +1545,7 @@ function writeLeaderboard(T0) {
     FB.db.ref('lb/' + nameKey(x.n)).transaction(c => {
       c = c || { g: 0, w: 0, itm: 0, net: 0, h: 0, vp: 0, pf: 0, big: 0, hu: 0, huw: 0, pls: 0 };
       c.n = x.n; c.g++; if (x.pl === 1) c.w++; if (x.pl <= po.pct.length) c.itm++;
-      c.net += prize - buy; c.h += r[0]; c.vp += r[1]; c.pf += r[2]; c.big = Math.max(c.big || 0, r[6]); c.pls += x.pl;
+      c.net += prize - buy * (1 + (x.rb || 0) + (x.ad || 0)); c.h += r[0]; c.vp += r[1]; c.pf += r[2]; c.big = Math.max(c.big || 0, r[6]); c.pls += x.pl;
       if (T0.fmt === 'hu') { c.hu++; if (x.pl === 1) c.huw++; }
       c.last = Date.now(); return c;
     });
