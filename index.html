@@ -1587,6 +1587,7 @@ function renderOver() {
 // ================== CAREER (this device) ==================
 function recordCareer(T0) {
   const me = T0.seats.find(s => s.id === myId); if (!me) return;
+  if (mode === 'local' || T0.seats.every(s => s.b || s.id === myId)) return; // practice vs bots doesn't count
   const c = LS.get('aic_career', { g: 0, w: 0, itm: 0, pls: 0, h: 0, vp: 0, pf: 0, hw: 0, big: 0, hu: 0, huw: 0, net: 0 });
   const r = (T0.stats && T0.stats[myId]) || [0, 0, 0, 0, 0, 0, 0, 0];
   const po = payouts(T0);
