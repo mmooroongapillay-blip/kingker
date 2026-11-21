@@ -324,6 +324,14 @@ html,body{background:radial-gradient(ellipse at 50% 0%,#15322d 0%,var(--room) 55
 .seg.speed button{line-height:1.15}
 .seg button small{display:block;font-size:11px;font-weight:500;color:var(--mute);margin-top:2px}
 .seg button.on small{color:#cfb779}
+/* voice betting */
+.turnrow{display:flex;align-items:center;justify-content:center;gap:10px;margin:0 0 4px}
+.turnrow .mytime{margin:0}
+.mic{width:40px;height:40px;border-radius:50%;font-size:19px;background:linear-gradient(180deg,#2b3d37,#18251f);border:1.5px solid rgba(227,182,87,.6);box-shadow:0 4px 10px rgba(0,0,0,.4)}
+.mic.on{background:radial-gradient(circle,#ff6b5e,#b3261e);border-color:#ffb3aa;animation:micpulse 1s ease-in-out infinite}
+@keyframes micpulse{0%,100%{box-shadow:0 0 0 0 rgba(255,107,94,.6)}50%{box-shadow:0 0 0 10px rgba(255,107,94,0)}}
+.abtn.confirm{animation:confirmglow 1s ease-in-out infinite}
+@keyframes confirmglow{0%,100%{box-shadow:0 0 0 0 rgba(242,205,109,.7)}50%{box-shadow:0 0 0 8px rgba(242,205,109,0)}}
 /* slim bottom area (portrait): bigger table, nothing covers the chips */
 .seat{z-index:4}
 .bet{z-index:5}
@@ -883,7 +891,7 @@ const initials = n => (String(n || '?').trim().split(/\s+/).map(w => w[0]).join(
 let myId = null;
 try { myId = sessionStorage.getItem('aic_tab_id'); if (!myId) { myId = rid(); sessionStorage.setItem('aic_tab_id', myId); } } catch (e) { myId = rid(); }
 let myName = LS.get('aic_name', '');
-const prefs = Object.assign({ bb: false, four: false, sound: true, muck: true }, LS.get('aic_prefs', {}));
+const prefs = Object.assign({ bb: false, four: false, sound: true, muck: true, voice: false, vlang: 'en-GB', vconfirm: true }, LS.get('aic_prefs', {}));
 const savePrefs = () => { LS.set('aic_prefs', prefs); document.body.classList.toggle('four', prefs.four); };
 savePrefs();
 
@@ -1792,12 +1800,14 @@ function renderActions(force) {
     const verb = L.cur === 0 ? 'Bet' : 'Raise to';
     const step = Math.max(1, BB / 2);
     const open = isLand() || raiseOpen || !(L.maxTo > L.minTo);
-    el.innerHTML = (T0.set.turn ? `<div class="mytime" id="mytime"></div>` : '') + (open && L.canRaise && L.maxTo > L.minTo ? `<div class="rpanel"><div class="presets">${presets.map(([t, v]) => `<button data-v="${v}" class="${v === raiseTo ? 'on' : ''}">${t}</button>`).join('')}</div>
+    const mic = prefs.voice ? `<button class="mic" id="a-mic" aria-label="Voice betting: tap and speak">🎙</button>` : '';
+    el.innerHTML = (T0.set.turn || mic ? `<div class="turnrow">${mic}<div class="mytime" id="mytime">${T0.set.turn ? '' : (mic ? 'Tap 🎙 and say your move' : '')}</div></div>` : '') + (open && L.canRaise && L.maxTo > L.minTo ? `<div class="rpanel"><div class="presets">${presets.map(([t, v]) => `<button data-v="${v}" class="${v === raiseTo ? 'on' : ''}">${t}</button>`).join('')}</div>
       <div class="slrow"><button class="st" id="r-m">−</button><input type="range" id="r-sl" min="${L.minTo}" max="${L.maxTo}" step="${step}" value="${raiseTo}"><button class="st" id="r-p">+</button><div class="amt" id="r-amt">${money(raiseTo, T0)}</div></div></div>` : '') +
       `<div class="abtns"><button class="abtn a-fold" id="a-f">Fold</button>
        <button class="abtn a-call" id="a-c">${L.canCheck ? 'Check' : (L.toCall >= T0.seats[me].s ? 'Call all-in' : 'Call')}${L.canCheck ? '' : `<small>${money(L.toCall, T0)}</small>`}</button>
        ${L.canRaise ? (open ? `<button class="abtn a-raise" id="a-r">${raiseTo >= L.maxTo ? 'All-in' : verb}<small id="a-rv">${money(raiseTo, T0)}</small></button>` : `<button class="abtn a-raise" id="a-ro">${L.cur === 0 ? 'Bet' : 'Raise'}</button>`) : ''}</div>`;
     if ($('#a-ro')) $('#a-ro').onclick = () => { raiseOpen = true; renderActions(true); };
+    if ($('#a-mic')) $('#a-mic').onclick = startVoice;
     const setR = v => {
       raiseTo = Math.max(L.minTo, Math.min(L.maxTo, Math.round(v)));
       const sl = $('#r-sl'); if (sl) sl.value = raiseTo;
@@ -1945,6 +1955,75 @@ function openStructure(set, curLvl, fromSetup) {
   $('#st-close').onclick = closeSheet;
 }
 
+// ================== VOICE BETTING ==================
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const voiceOK = () => !!SR && !(typeof window.claude !== 'undefined' && !window.KK_SITE);
+// spoken command -> action. L = legal(), pv(f) = pot-fraction amount, bb = big blind
+function parseVoice(text, L, pv, bb) {
+  let t = ' ' + String(text || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[’']/g, ' ').replace(/[^a-z0-9.,½¾ -]/g, ' ').replace(/\s+/g, ' ') + ' ';
+  const has = (...w) => w.some(x => t.includes(' ' + x + ' ') || t.includes(' ' + x));
+  // number: "1,200" "1 200" "2k" "2 thousand" "deux mille" -> digits come from the recognizer
+  let num = null;
+  const m = t.replace(/(\d)[ ,.](?=\d{3}\b)/g, '$1').match(/(\d+(?:\.\d+)?)\s*(k|thousand|mille)?\b/);
+  if (m) { num = parseFloat(m[1]); if (m[2]) num *= 1000; }
+  const bbm = t.match(/(\d+(?:\.\d+)?)\s*(big blinds?|bb|blinds?|grosses? blindes?)/);
+  if (bbm) num = parseFloat(bbm[1]) * bb;
+  if (has('all in', 'allin', 'all-in', 'shove', 'jam', 'tapis', 'a tapis', 'tout', 'tapis!')) return { a: 'allin' };
+  if (has('fold', 'i fold', 'je me couche', 'couche', 'coucher', 'je passe', 'passe')) return { a: 'fold' };
+  if (has('check', 'checking', 'parole', 'je check')) return { a: L.canCheck ? 'check' : null, why: L.canCheck ? '' : 'You can\'t check — there\'s a bet to call' };
+  const raiseWord = has('raise', 'raising', 'bet', 'betting', 'relance', 'relancer', 'mise', 'miser', 'je relance', 'je mise', 'reraise', 'surrelance');
+  const by = has('by', 'de plus');
+  let amt = null;
+  if (has('half pot', 'half the pot', 'half', 'moitie', 'demi pot', 'demi', '½')) amt = pv(0.5);
+  else if (has('three quarters', 'three quarter', 'trois quarts', '¾')) amt = pv(0.75);
+  else if (has('pot', 'le pot', 'pot size')) amt = pv(1);
+  else if (has('min', 'minimum', 'min raise', 'mini')) amt = L.minTo;
+  else if (num != null && (raiseWord || !has('call', 'je suis', 'suivre', 'suis'))) amt = by ? L.cur + num : num;
+  if (amt != null) {
+    if (!L.canRaise) return { a: L.canCheck ? null : 'call', why: L.canCheck ? 'Raising isn\'t possible right now' : '' };
+    amt = Math.round(amt);
+    if (amt >= L.maxTo) return { a: 'allin' };
+    return { a: 'raise', x: Math.max(L.minTo, amt), low: amt < L.minTo };
+  }
+  if (raiseWord) return { a: 'open' };
+  if (has('call', 'i call', 'calling', 'je suis', 'suivre', 'suis', 'colle', 'je paie', 'paye')) return { a: L.canCheck ? 'check' : 'call' };
+  return null;
+}
+let rec = null, listening = false;
+function startVoice() {
+  if (!voiceOK()) { toast('Voice betting isn\'t supported in this browser. Try Chrome, or Safari on iPhone.'); return; }
+  if (listening) { try { rec.stop(); } catch (e) {} return; }
+  try {
+    rec = new SR(); rec.lang = prefs.vlang; rec.interimResults = false; rec.maxAlternatives = 3; rec.continuous = false;
+  } catch (e) { toast('Microphone unavailable'); return; }
+  const btn = $('#a-mic');
+  rec.onstart = () => { listening = true; if ($('#a-mic')) $('#a-mic').classList.add('on'); };
+  rec.onend = () => { listening = false; if ($('#a-mic')) $('#a-mic').classList.remove('on'); };
+  rec.onerror = e => { listening = false; if ($('#a-mic')) $('#a-mic').classList.remove('on'); toast(e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'Allow the microphone for KingKER in your browser settings' : e.error === 'no-speech' ? 'Didn\'t hear anything — tap 🎙 and speak' : 'Voice error: ' + e.error); };
+  rec.onresult = ev => {
+    const alts = Array.from(ev.results[0] || []).map(a => a.transcript);
+    handleVoice(alts);
+  };
+  try { rec.start(); } catch (e) { toast('Could not start the microphone'); }
+}
+function handleVoice(alts) {
+  const T0 = view.T, H = T0 && T0.hand, me = mySeat();
+  if (!H || H.ph !== 'bet' || H.turn !== me) { toast('It\'s not your turn'); return; }
+  const L = legal(T0, me), pot = sum(H.tot), BB = H.bl[1], potAfter = pot + L.toCall;
+  const pv = f => Math.max(L.minTo, Math.min(L.maxTo, Math.round((L.cur + potAfter * f) / (BB / 2 || 1)) * (BB / 2 || 1)));
+  let r = null, heard = alts[0] || '';
+  for (const a of alts) { r = parseVoice(a, L, pv, BB); if (r && r.a) { heard = a; break; } }
+  if (!r || !r.a) { toast(r && r.why ? r.why : `Heard "${heard}" — say fold, check, call, raise to 200, pot or all in`, 3200); return; }
+  if (r.a === 'fold') { if (L.canCheck) { ask('You can check for free. Fold anyway?', 'Fold').then(ok => ok && sendAction('fold')); return; } toast('🎙 Fold'); sendAction('fold'); return; }
+  if (r.a === 'check' || r.a === 'call') { toast('🎙 ' + (r.a === 'check' ? 'Check' : 'Call ' + money(L.toCall, T0))); sendAction(r.a); return; }
+  if (r.a === 'open') { raiseOpen = true; renderActions(true); toast('🎙 How much? Say an amount, "pot" or "all in"'); return; }
+  const to = r.a === 'allin' ? L.maxTo : r.x;
+  if (!prefs.vconfirm) { toast('🎙 ' + (r.a === 'allin' ? 'All-in' : 'Raise to ' + money(to, T0))); sendAction(r.a === 'allin' ? 'allin' : 'raise', to); return; }
+  raiseOpen = true; raiseTo = to; renderActions(true);
+  const b = $('#a-r'); if (b) b.classList.add('confirm');
+  toast(`🎙 ${r.a === 'allin' ? 'All-in' : (L.cur ? 'Raise to ' : 'Bet ') + money(to, T0)}${r.low ? ' (the minimum)' : ''} — tap the gold button to confirm`, 3500);
+}
+
 // ================== MENU ==================
 $('#b-menu').onclick = () => openMenu();
 $('#b-emo').onclick = () => $('#emotes').classList.toggle('open');
@@ -1960,6 +2039,10 @@ function openMenu() {
     <button class="mitem" id="m-rank">🃏 Hand rankings <span>›</span></button>
     <button class="mitem" id="m-bb">Show amounts in big blinds <span class="tog ${prefs.bb ? 'on' : ''}"></span></button>
     <button class="mitem" id="m-four">Four-colour deck <span class="tog ${prefs.four ? 'on' : ''}"></span></button>
+    <button class="mitem" id="m-voice">🎙 Voice betting <span class="tog ${prefs.voice ? 'on' : ''}"></span></button>
+    ${prefs.voice ? `<div style="padding:0 4px 8px" class="note">${voiceOK() ? 'Tap 🎙 on your turn and say: <b>fold</b>, <b>check</b>, <b>call</b>, <b>raise to 200</b>, <b>bet 3 big blinds</b>, <b>half pot</b>, <b>pot</b>, <b>all in</b>. French works too: <b>je me couche</b>, <b>parole</b>, <b>je suis</b>, <b>relance à 200</b>, <b>tapis</b>.' : '⚠️ This browser can\'t do voice. Use Chrome, or Safari on iPhone (open the link in Safari).'}</div>
+    <div class="seg" style="margin:0 0 8px" id="m-vlang"><button data-v="en-GB" class="${prefs.vlang === 'en-GB' ? 'on' : ''}">English</button><button data-v="fr-FR" class="${prefs.vlang === 'fr-FR' ? 'on' : ''}">Français</button></div>
+    <button class="mitem" id="m-vconf">Voice raises need a tap to confirm <span class="tog ${prefs.vconfirm ? 'on' : ''}"></span></button>` : ''}
     <button class="mitem" id="m-muck">Auto-muck losing hands <span class="tog ${prefs.muck ? 'on' : ''}"></span></button>
     <button class="mitem" id="m-snd">Sounds <span class="tog ${prefs.sound ? 'on' : ''}"></span></button>
     ${host && T0 && T0.status === 'play' ? `<button class="mitem" id="m-pause">${T0.paused ? '▶️ Resume game' : '⏸ Pause game'}</button>` : ''}
@@ -1973,6 +2056,9 @@ function openMenu() {
   $('#m-bb').onclick = () => { prefs.bb = !prefs.bb; savePrefs(); render(); openMenu(); };
   $('#m-four').onclick = () => { prefs.four = !prefs.four; savePrefs(); openMenu(); };
   $('#m-snd').onclick = () => { prefs.sound = !prefs.sound; savePrefs(); openMenu(); };
+  $('#m-voice').onclick = () => { prefs.voice = !prefs.voice; savePrefs(); actSig = ''; openMenu(); if (view.T) renderActions(true); };
+  if ($('#m-vconf')) $('#m-vconf').onclick = () => { prefs.vconfirm = !prefs.vconfirm; savePrefs(); openMenu(); };
+  if ($('#m-vlang')) $('#m-vlang').querySelectorAll('button').forEach(b => b.onclick = () => { prefs.vlang = b.dataset.v; savePrefs(); openMenu(); });
   $('#m-muck').onclick = () => {
     prefs.muck = !prefs.muck; savePrefs();
     if (mode === 'client' && R) R.presence({ mk: prefs.muck ? 1 : 0 }).catch(() => {});

@@ -9,6 +9,8 @@ They are generated from the source in this folder.
 - `test.js` — engine tests: `node test.js` (hand evaluator + hundreds of simulated tournaments, chip conservation).
 - `test_struct.js` — engine tests for antes, rebuys, add-ons (chip conservation, places, prize pool): `node test_struct.js`.
 - `struct_e2e.py` — browser test: bust → rebuy prompt → rebuy; add-on break → add-on.
+- `test_voice.js` — voice-betting command parser tests (EN/FR phrases): `node test_voice.js` (reads app.html from the same folder).
+- `voice_e2e.py` — browser test of voice betting with a simulated microphone.
 - `e2e.py` — browser test of practice + online play (Claude room mock). Needs Playwright + Chrome.
 - `p2p_e2e.py` + `server.js` — browser test of the website's direct phone-to-phone play against a local PeerJS server (`npm i peer peerjs@1.5.4`, `node server.js`).
 - `icon.html` — source for the app icons.
