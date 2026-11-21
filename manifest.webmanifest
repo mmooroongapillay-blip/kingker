@@ -4,7 +4,7 @@
  "start_url": "./",
  "scope": "./",
  "display": "standalone",
- "orientation": "portrait",
+ "orientation": "any",
  "background_color": "#0a100e",
  "theme_color": "#0a100e",
  "description": "Texas Hold'em with your friends \u2014 Heads-Up & Sit & Go",

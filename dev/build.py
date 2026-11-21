@@ -14,7 +14,7 @@ if not os.path.exists('site/config.js'):
     open('site/config.js', 'w').write("// KingKER website settings\nwindow.KK_SITE = true;\n// Paste the Firebase web config here later to switch on the shared leaderboard + dealer takeover\nwindow.FIREBASE_CONFIG = null;\n")
 open('site/manifest.webmanifest', 'w').write(json.dumps({
   "name": "KingKER — Texas Hold'em", "short_name": "KingKER", "start_url": "./", "scope": "./", "display": "standalone",
-  "orientation": "portrait", "background_color": "#0a100e", "theme_color": "#0a100e",
+  "orientation": "any", "background_color": "#0a100e", "theme_color": "#0a100e",
   "description": "Texas Hold'em with your friends — Heads-Up & Sit & Go",
   "icons": [{"src": "icon-192.png", "sizes": "192x192", "type": "image/png"},
             {"src": "icon-512.png", "sizes": "512x512", "type": "image/png"},

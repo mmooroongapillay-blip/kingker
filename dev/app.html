@@ -323,6 +323,47 @@ html,body{background:radial-gradient(ellipse at 50% 0%,#15322d 0%,var(--room) 55
 .seat .mc .card .r{font-size:12px;left:2px;top:1px}.seat .mc .card .r i{display:none}
 .seat .mc.show .card .r{font-size:15px;left:3px}.seat .mc.show .card .r i{display:block}.seat .mc.show .card .u{font-size:15px}
 .card.dim{filter:brightness(.6)}
+.seg.speed button{line-height:1.15}
+.seg button small{display:block;font-size:11px;font-weight:500;color:var(--mute);margin-top:2px}
+.seg button.on small{color:#cfb779}
+/* landscape (phone sideways, tablets, computers): table left, your cards + buttons right */
+@media (orientation: landscape) and (min-width: 640px){
+  #app{max-width:1400px}
+  #scr-game:not(.hidden){display:grid;grid-template-columns:minmax(0,1fr) clamp(270px,31vw,380px);grid-template-rows:auto minmax(0,1fr) auto auto;grid-template-areas:"top top" "table hero" "table actions" "table emotes";height:100%}
+  #scr-game .topbar{grid-area:top}
+  #scr-game .tablewrap{grid-area:table;margin:4px 2px 4px 6px;min-height:0}
+  #scr-game .hero{grid-area:hero;align-self:end;min-height:0;padding:8px 12px 2px}
+  #scr-game .actions{grid-area:actions;min-height:0}
+  #scr-game .emotes{grid-area:emotes;padding-bottom:calc(8px + env(safe-area-inset-bottom))}
+  #scr-game .actions,#scr-game .hero,#scr-game .emotes{min-width:0}
+  .slrow .amt{min-width:54px;font-size:17px}
+  .home,.screen.home{max-width:620px;margin:0 auto;width:100%}
+}
+/* short landscape (phones): compact everything so it fits without scrolling */
+@media (orientation: landscape) and (max-height: 520px){
+  .topbar{padding:4px 10px}.topbar .ib{height:30px;width:34px}
+  .lvlbox b{font-size:15px}.lvlbox .sub,.tcode{font-size:11px}
+  .hero{gap:10px}.hero .card.big{width:46px;height:66px}.hero .card.big .r{font-size:22px;left:5px}.hero .card.big .u{font-size:27px}
+  .hero .hl{font-size:15px}
+  .actions{padding:4px 10px 6px}
+  .rpanel{padding:6px;margin-bottom:6px}.presets{margin-bottom:4px}.presets button{padding:6px 2px;font-size:12px}
+  .slrow input[type=range]{height:24px}.slrow .st{height:30px;width:32px}
+  .abtn{padding:9px 4px;font-size:15px}
+  .mytime{font-size:13px;margin:0 0 4px}
+  .emotes{padding:0 10px 6px;gap:4px}.emotes button{padding:4px 9px;font-size:13px}
+  .seat{transform:translate(-50%,-50%) scale(.86)}
+  .slot,.card{width:32px;height:46px}.card .r{font-size:15px}.card .u{font-size:18px}
+  .bav-felt{width:30px;height:30px;font-size:16px;margin-bottom:2px}
+  .felt::after{font-size:12px;bottom:9%}
+  .sitout{padding:6px 10px}.sitout .zzbig{font-size:22px}
+}
+/* big screens (tablets landscape, laptops): larger seats and cards */
+@media (min-width: 1000px) and (min-height: 650px){
+  .seat{transform:translate(-50%,-50%) scale(1.22)}
+  .slot,.card{width:50px;height:72px}.card .r{font-size:23px;left:5px}.card .u{font-size:28px}
+  .bav-felt{width:44px;height:44px;font-size:23px}
+  .pot{font-size:20px}.msg{font-size:15px}.bet{font-size:16px}
+}
 @media (prefers-reduced-motion: reduce){.deal,.bubble,.fxplus,.bsay.pop{animation:none!important}.flyc,.fxchip{transition:none!important}}
 @media (min-width:640px){
   .seat{width:104px}.plate .nm{font-size:13px}.plate .stk{font-size:15px}
@@ -379,7 +420,7 @@ html,body{background:radial-gradient(ellipse at 50% 0%,#15322d 0%,var(--room) 55
     </div>
   </div>
   <div id="opt-stack"><p class="lbl">Starting stack</p><div class="seg" data-k="stack"><button data-v="1500">1,500</button><button data-v="3000">3,000</button><button data-v="5000">5,000</button><button data-v="10000">10,000</button></div></div>
-  <div id="opt-mins"><p class="lbl">Blinds go up every</p><div class="seg" data-k="mins"><button data-v="3">3 min</button><button data-v="5">5 min</button><button data-v="8">8 min</button><button data-v="12">12 min</button><button data-v="15">15 min</button></div></div>
+  <div id="opt-mins"><p class="lbl">Speed</p><div class="seg speed" data-k="mins"><button data-v="10">Regular<small>10-min levels</small></button><button data-v="5">Turbo<small>5-min levels</small></button><button data-v="3">Hyper<small>3-min levels</small></button></div></div>
   <div><p class="lbl">Time to act</p><div class="seg" data-k="turn"><button data-v="10">10s</button><button data-v="15">15s</button><button data-v="25">25s</button><button data-v="40">40s</button><button data-v="0">Off</button></div></div>
   <div id="opt-struct">
     <p class="lbl">Antes</p><div class="seg" data-k="ante"><button data-v="0">Off</button><button data-v="1">From level 4</button></div>
@@ -1076,13 +1117,13 @@ function render() {
 
 function renderLobby() {
   const T0 = view.T, host = mode === 'host', f = FORMATS[T0.fmt];
-  $('#lob-fmt').textContent = f.name + ' · ' + T0.seats.length + '/' + f.max;
+  $('#lob-fmt').textContent = f.name + (T0.fmt === 'spin' ? '' : ' · ' + speedName(T0.set.mins)) + ' · ' + T0.seats.length + '/' + f.max;
   $('#lob-code').textContent = code;
   $('#lob-count').textContent = 'Players at the table';
   $('#lob-list').innerHTML = T0.seats.map(s => `<div class="pl"><div class="av" style="background:${avColor(s.id)}">${s.b ? '🤖' : esc(initials(s.n))}</div>
     <div class="grow">${esc(s.n)}${s.id === myId ? ' <span class="note">(you)</span>' : ''}${s.b ? ' <span class="note">bot</span>' : ''}</div>
     ${host && s.id !== myId ? `<button class="x" data-kick="${esc(s.id)}">×</button>` : ''}</div>`).join('');
-  $('#lob-set').textContent = `Stack ${T0.set.stack.toLocaleString('en-US')} · blinds up every ${T0.set.mins} min · ${T0.set.turn ? T0.set.turn + 's to act' + (T0.set.tb ? ' + ' + T0.set.tb + 's time bank' : '') : 'no timer'}` + (T0.set.ante ? ' · antes from level 4' : '') + (T0.set.rb ? ` · rebuys ${T0.set.rb === 99 ? 'unlimited' : 'max ' + T0.set.rb} (first ${T0.set.rbl} levels)${T0.set.ad ? ' + add-on' : ''}` : '') + (T0.set.buyin ? ` · buy-in Rs ${T0.set.buyin}` : '');
+  $('#lob-set').textContent = `Stack ${T0.set.stack.toLocaleString('en-US')} · ${speedName(T0.set.mins)} speed (${T0.set.mins}-min levels) · ${T0.set.turn ? T0.set.turn + 's to act' + (T0.set.tb ? ' + ' + T0.set.tb + 's time bank' : '') : 'no timer'}` + (T0.set.ante ? ' · antes from level 4' : '') + (T0.set.rb ? ` · rebuys ${T0.set.rb === 99 ? 'unlimited' : 'max ' + T0.set.rb} (first ${T0.set.rbl} levels)${T0.set.ad ? ' + add-on' : ''}` : '') + (T0.set.buyin ? ` · buy-in Rs ${T0.set.buyin}` : '');
   $('#lob-host').classList.toggle('hidden', !host);
   $('#b-start').disabled = T0.seats.length < 2;
   $('#b-addbot').disabled = T0.seats.length >= f.max;
@@ -1107,7 +1148,8 @@ let dealt = {};
 function seatPos(k, n) {
   const ang = (90 + k * 360 / n) * Math.PI / 180;
   const w = document.getElementById('tablewrap').clientWidth || 380, half = 46 / w * 100 + 1;
-  return { x: Math.max(half, Math.min(100 - half, 50 + 43 * Math.cos(ang))), y: 51 + 41 * Math.sin(ang) };
+  const land = innerWidth > innerHeight && innerWidth >= 640;
+  return { x: Math.max(half, Math.min(100 - half, 50 + 43 * Math.cos(ang))), y: land ? 48 + 37 * Math.sin(ang) : 51 + 41 * Math.sin(ang) };
 }
 function renderGame() {
   const T0 = view.T, H = T0.hand;
@@ -1116,7 +1158,7 @@ function renderGame() {
   const nx = BLINDS[Math.min(T0.lvl + 1, BLINDS.length - 1)];
   $('#lvlbox').innerHTML = `<b>Level ${T0.lvl + 1 - startLevelIdx(T0.set.stack)} · ${sb.toLocaleString('en-US')}/${bb.toLocaleString('en-US')}</b>
     <div class="sub">${T0.paused ? '⏸ Paused' : `Next ${nx[0].toLocaleString('en-US')}/${nx[1].toLocaleString('en-US')} in <span class="clk" id="lvlclk">${mmss(lvlLeftNow())}</span>`}${H && H.ante ? ' · ante ' + H.ante.toLocaleString('en-US') : ''}${inRebuyPeriod(T0) ? ' · 🔁 rebuys open' : ''} · #${H ? H.n : 0}</div>`;
-  $('#tcode').innerHTML = (code ? `#<b>${esc(code)}</b>` : `<b>${esc(f.name)}</b>`) + `<br>${T0.seats.filter(s => !s.o).length}/${T0.seats.length} left${view.spect ? ' · 👁' + view.spect : ''}`;
+  $('#tcode').innerHTML = (code ? `#<b>${esc(code)}</b>` : `<b>${esc(f.name)}</b>`) + (T0.fmt === 'spin' ? '' : `<br>${speedName(T0.set.mins)}`) + `<br>${T0.seats.filter(s => !s.o).length}/${T0.seats.length} left${view.spect ? ' · 👁' + view.spect : ''}`;
   let ban = '';
   if (view.hostGone) ban = `<div class="banner">Host disconnected — waiting for them to return…</div>`;
   else if (T0.paused) ban = `<div class="banner gold">⏸ Game paused by host</div>`;
@@ -1194,7 +1236,7 @@ function runDealAnim(T0, H) {
   }, 1400);
 }
 // ---------- chips & table effects ----------
-const betPos = p => ({ x: 50 + (p.x - 50) * 0.55, y: 50 + (p.y - 50) * 0.7 });
+const betPos = p => { const land = innerWidth > innerHeight && innerWidth >= 640; return { x: 50 + (p.x - 50) * (land ? 0.62 : 0.55), y: 50 + (p.y - 50) * (land ? 0.5 : 0.7) }; };
 function chipStack(amt, bb) {
   const r = amt / (bb || 1), tier = r < 1 ? 't1' : r < 4 ? 't2' : r < 15 ? 't3' : r < 50 ? 't4' : 't5';
   const n = Math.max(1, Math.min(5, 1 + Math.floor(Math.log2(r + 1))));
@@ -1308,6 +1350,7 @@ function openStatsTable() {
 }
 let eqCache = { k: '', v: {} };
 function eqFor(H) { const k = H.n + ':' + H.board.join(','); if (eqCache.k !== k) eqCache = { k, v: allinEquity(H.shown, H.board) }; return eqCache.v; }
+const speedName = m => m >= 10 ? 'Regular' : m >= 5 ? 'Turbo' : 'Hyper';
 const ordinal = n => n + (['th', 'st', 'nd', 'rd'][(n % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][n % 100] || 'th');
 function preflopLabel(h) {
   const a = Math.max(h[0] % 13, h[1] % 13), b = Math.min(h[0] % 13, h[1] % 13);
@@ -1508,7 +1551,7 @@ function openStructure(set, curLvl, fromSetup) {
     if (set.rb && set.ad && k === set.rbl - 1) rows.push(`<tr><td colspan="5" style="padding:7px 4px;color:var(--gold);font-weight:700">☕ Add-on break (20 s) — rebuys close</td></tr>`);
   }
   openSheet('struct', `<h2>📋 Blind structure</h2>
-    <p class="note" style="margin-top:-6px">Starting stack ${set.stack.toLocaleString('en-US')} · ${set.mins}-minute levels${set.ante ? ' · antes from level 4' : ''}${set.rb ? ` · rebuys ${set.rb === 99 ? 'unlimited' : 'max ' + set.rb} in the first ${set.rbl} levels (🔁)${set.ad ? ' + add-on' : ''}` : ''}</p>
+    <p class="note" style="margin-top:-6px">Starting stack ${set.stack.toLocaleString('en-US')} · ${speedName(set.mins)} speed, ${set.mins}-minute levels${set.ante ? ' · antes from level 4' : ''}${set.rb ? ` · rebuys ${set.rb === 99 ? 'unlimited' : 'max ' + set.rb} in the first ${set.rbl} levels (🔁)${set.ad ? ' + add-on' : ''}` : ''}</p>
     <table style="width:100%;border-collapse:collapse;font-size:14px;text-align:left"><tr style="color:var(--mute)"><th style="padding:6px 4px">Level</th><th>Blinds</th><th>Ante</th><th>Time</th><th></th></tr>${rows.join('')}</table>
     ${set.rb ? `<p class="note" style="margin-top:10px">🔁 <b>Rebuy:</b> bust out in these levels and you get 15 seconds to buy back in for a fresh ${set.stack.toLocaleString('en-US')} stack. You can also rebuy between hands while at or below ${set.stack.toLocaleString('en-US')}.${set.ad ? ` <b>Add-on:</b> at the break everyone still in can add ${set.stack.toLocaleString('en-US')} chips once.` : ''} Each costs the same as the buy-in.</p>` : ''}
     <button class="btn" id="st-close" style="margin-top:8px">${fromSetup ? 'Back' : 'Close'}</button>`);
@@ -1742,6 +1785,9 @@ function renderInstall() {
     : `<p class="lbl">Get the app</p><p class="note" style="margin:0">${ios ? 'On iPhone: tap the <b>Share</b> button ⬆️ in Safari, then <b>Add to Home Screen</b>.' : 'Open your browser menu ⋮ and tap <b>Install app</b> or <b>Add to Home screen</b>.'}</p>`;
   const b = $('#b-install'); if (b) b.onclick = async () => { deferredInstall.prompt(); try { await deferredInstall.userChoice; } catch (e) {} deferredInstall = null; renderInstall(); };
 }
+
+let rszT = 0;
+window.addEventListener('resize', () => { clearTimeout(rszT); rszT = setTimeout(() => { if (inTable && view.T && view.T.status !== 'lobby') { actSig = ''; render(); } }, 120); });
 
 // ================== BOOT ==================
 initCrypto();
