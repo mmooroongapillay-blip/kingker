@@ -326,6 +326,27 @@ html,body{background:radial-gradient(ellipse at 50% 0%,#15322d 0%,var(--room) 55
 .seg.speed button{line-height:1.15}
 .seg button small{display:block;font-size:11px;font-weight:500;color:var(--mute);margin-top:2px}
 .seg button.on small{color:#cfb779}
+/* slim bottom area (portrait): bigger table, nothing covers the chips */
+.seat{z-index:4}
+.bet{z-index:5}
+.center{z-index:1}
+#b-emo{font-size:17px}
+@media not all and (orientation: landscape) and (min-width: 640px){
+  .hero{min-height:0;padding:4px 14px 0;gap:10px}
+  .hero .card.big{width:50px;height:72px;border-radius:8px}
+  .hero .card.big .r{font-size:24px;left:5px;top:4px}
+  .hero .card.big .u{font-size:30px;right:5px}
+  .hero .hc .card.big:first-child{margin-right:-8px}
+  .hero .sl{font-size:17px;color:#f1e6c8}
+  .actions{min-height:0;padding:4px 10px 8px;position:relative}
+  .mytime{font-size:13px;margin:0 0 4px}
+  .rpanel{position:absolute;left:10px;right:10px;bottom:100%;margin-bottom:4px;z-index:20;background:#0f1d1a;box-shadow:0 -10px 30px rgba(0,0,0,.55)}
+  .abtn{padding:12px 6px}
+  .emotes{display:none;position:absolute;left:0;right:0;top:56px;z-index:30;padding:8px 10px;background:rgba(10,22,20,.96);border-bottom:1px solid rgba(201,162,74,.25)}
+  .emotes.open{display:flex}
+  #scr-game{position:relative}
+}
+@media (orientation: landscape) and (min-width: 640px){ #b-emo{display:none} }
 /* landscape (phone sideways, tablets, computers): table left, your cards + buttons right */
 @media (orientation: landscape) and (min-width: 640px){
   #app{max-width:1400px}
@@ -461,6 +482,7 @@ html,body{background:radial-gradient(ellipse at 50% 0%,#15322d 0%,var(--room) 55
 <section id="scr-game" class="screen hidden">
   <header class="topbar">
     <button class="ib" id="b-menu">☰</button>
+    <button class="ib" id="b-emo" title="Emotes">😀</button>
     <div class="lvlbox" id="lvlbox"></div>
     <div class="tcode" id="tcode"></div>
   </header>
@@ -1273,7 +1295,11 @@ function renderSeats() {
   if (!view.T || view.T.status === 'lobby') return;
   const T0 = view.T, H = T0.hand, n = T0.seats.length, me = mySeat(), base = me >= 0 ? me : 0;
   let h = '', boardBox = null;
-  try { const w = $('#tablewrap').getBoundingClientRect(), r = $('#board').getBoundingClientRect(); if (w.width && r.width) boardBox = { l: (r.left - w.left) / w.width * 100, r: (r.right - w.left) / w.width * 100, t: (r.top - w.top) / w.height * 100, b: (r.bottom - w.top) / w.height * 100 }; } catch (e) {}
+  try {
+    const w = $('#tablewrap').getBoundingClientRect(), r = $('#board').getBoundingClientRect(), pt = $('#pot').getBoundingClientRect();
+    const bot = pt.height ? Math.max(r.bottom, pt.bottom) : r.bottom;
+    if (w.width && r.width) boardBox = { l: (r.left - w.left) / w.width * 100, r: (r.right - w.left) / w.width * 100, t: (r.top - w.top) / w.height * 100, b: (bot - w.top) / w.height * 100 };
+  } catch (e) {}
   T0.seats.forEach((s, i) => {
     const k = (i - base + n) % n, p = seatPos(k, n);
     const turn = H && H.ph === 'bet' && H.turn === i;
@@ -1297,7 +1323,7 @@ function renderSeats() {
       <div class="plate">${tag}<div class="nm">${esc(s.n)}</div><div class="stk">${s.aw && !s.o ? 'Sitting out' : stk}</div>${eqb}</div></div>`;
     if (H && H.bets[i]) {
       const bp = betPos(p);
-      if (boardBox && bp.x > boardBox.l - 9 && bp.x < boardBox.r + 9 && bp.y > boardBox.t - 3 && bp.y < boardBox.b + 3) bp.y = bp.y < (boardBox.t + boardBox.b) / 2 ? boardBox.t - 4 : boardBox.b + 4;
+      if (boardBox && bp.x > boardBox.l - 9 && bp.x < boardBox.r + 9 && bp.y > boardBox.t - 3 && bp.y < boardBox.b + 3) { bp.y = bp.y < (boardBox.t + boardBox.b) / 2 ? boardBox.t - 4 : boardBox.b + 4; bp.x += bp.x < 50 ? 6 : -6; }
       h += `<div class="bet" style="left:${bp.x}%;top:${bp.y}%">${chipStack(H.bets[i], H.bl[1])}<span>${money(H.bets[i], T0)}</span></div>`;
     }
   });
@@ -1372,13 +1398,14 @@ function renderHero() {
   } else if (H && !H.fold[me]) { cards = cardHTML(null, 'big') + cardHTML(null, 'big'); hl = 'Dealing…'; }
   el.innerHTML = `<div class="hc">${cards}</div><div class="info"><div class="hl">${esc(hl)}</div><div class="sl">${sl}</div></div>`;
 }
-let raiseTo = 0, actSig = '';
+let raiseTo = 0, actSig = '', raiseOpen = false, raiseSig = '';
 function renderActions(force) {
   const T0 = view.T, H = T0.hand, me = mySeat(), el = $('#actions');
   const s = me >= 0 ? T0.seats[me] : null;
   const myTurn = s && H && H.ph === 'bet' && H.turn === me && !T0.paused && !view.hostGone && view.hole;
   const pending = pendingAct && pendingAct.sig === turnSig() && Date.now() - pendingAct.at < 4000;
-  const sig = [turnSig(), myTurn ? 1 : 0, pending ? 1 : 0, pre, s && s.aw, s && s.o, s && s.rbp, s && s.rb, s && s.ad, s && s.s, !!T0.brk, inRebuyPeriod(T0), T0.paused, T0.status, view.hostGone, !!view.hole, prefs.bb, H && H.shown && me >= 0 && H.shown[me] ? 1 : 0].join('#');
+  if (turnSig() !== raiseSig) { raiseSig = turnSig(); raiseOpen = false; }
+  const sig = [raiseOpen ? 1 : 0, isLand() ? 1 : 0, turnSig(), myTurn ? 1 : 0, pending ? 1 : 0, pre, s && s.aw, s && s.o, s && s.rbp, s && s.rb, s && s.ad, s && s.s, !!T0.brk, inRebuyPeriod(T0), T0.paused, T0.status, view.hostGone, !!view.hole, prefs.bb, H && H.shown && me >= 0 && H.shown[me] ? 1 : 0].join('#');
   if (sig === actSig && !force) return;
   actSig = sig;
   if (!s) { el.innerHTML = `<div class="ainfo">👁 Watching the game</div>`; return; }
@@ -1406,11 +1433,13 @@ function renderActions(force) {
     const presets = [['Min', L.minTo], ['½ Pot', pv(.5)], ['¾ Pot', pv(.75)], ['Pot', pv(1)], ['All-in', L.maxTo]];
     const verb = L.cur === 0 ? 'Bet' : 'Raise to';
     const step = Math.max(1, BB / 2);
-    el.innerHTML = (T0.set.turn ? `<div class="mytime" id="mytime"></div>` : '') + (L.canRaise && L.maxTo > L.minTo ? `<div class="rpanel"><div class="presets">${presets.map(([t, v]) => `<button data-v="${v}" class="${v === raiseTo ? 'on' : ''}">${t}</button>`).join('')}</div>
+    const open = isLand() || raiseOpen || !(L.maxTo > L.minTo);
+    el.innerHTML = (T0.set.turn ? `<div class="mytime" id="mytime"></div>` : '') + (open && L.canRaise && L.maxTo > L.minTo ? `<div class="rpanel"><div class="presets">${presets.map(([t, v]) => `<button data-v="${v}" class="${v === raiseTo ? 'on' : ''}">${t}</button>`).join('')}</div>
       <div class="slrow"><button class="st" id="r-m">−</button><input type="range" id="r-sl" min="${L.minTo}" max="${L.maxTo}" step="${step}" value="${raiseTo}"><button class="st" id="r-p">+</button><div class="amt" id="r-amt">${money(raiseTo, T0)}</div></div></div>` : '') +
       `<div class="abtns"><button class="abtn a-fold" id="a-f">Fold</button>
        <button class="abtn a-call" id="a-c">${L.canCheck ? 'Check' : (L.toCall >= T0.seats[me].s ? 'Call all-in' : 'Call')}${L.canCheck ? '' : `<small>${money(L.toCall, T0)}</small>`}</button>
-       ${L.canRaise ? `<button class="abtn a-raise" id="a-r">${raiseTo >= L.maxTo ? 'All-in' : verb}<small id="a-rv">${money(raiseTo, T0)}</small></button>` : ''}</div>`;
+       ${L.canRaise ? (open ? `<button class="abtn a-raise" id="a-r">${raiseTo >= L.maxTo ? 'All-in' : verb}<small id="a-rv">${money(raiseTo, T0)}</small></button>` : `<button class="abtn a-raise" id="a-ro">${L.cur === 0 ? 'Bet' : 'Raise'}</button>`) : ''}</div>`;
+    if ($('#a-ro')) $('#a-ro').onclick = () => { raiseOpen = true; renderActions(true); };
     const setR = v => {
       raiseTo = Math.max(L.minTo, Math.min(L.maxTo, Math.round(v)));
       const sl = $('#r-sl'); if (sl) sl.value = raiseTo;
@@ -1466,7 +1495,7 @@ function imBack() {
 function renderEmotes() {
   const el = $('#emotes'); if (el.dataset.done) return; el.dataset.done = 1;
   el.innerHTML = ['👍', '😂', '😮', '🔥', '😤', '🙈', 'nh', 'gg', 'ty', 'wp', 'ship it!', 'fold pre 😅'].map(m => `<button data-m="${esc(m)}">${esc(m)}</button>`).join('');
-  el.addEventListener('click', e => { const b = e.target.closest('[data-m]'); if (b) say(b.dataset.m); });
+  el.addEventListener('click', e => { const b = e.target.closest('[data-m]'); if (b) { say(b.dataset.m); el.classList.remove('open'); } });
 }
 function lvlLeftNow() { const T0 = view.T; if (!T0) return 0; return view.live || T0.paused ? T0.lvlLeft : T0.lvlLeft - (performance.now() - view.recv); }
 let lastCountBeep = 0;
@@ -1560,6 +1589,8 @@ function openStructure(set, curLvl, fromSetup) {
 
 // ================== MENU ==================
 $('#b-menu').onclick = () => openMenu();
+$('#b-emo').onclick = () => $('#emotes').classList.toggle('open');
+const isLand = () => innerWidth > innerHeight && innerWidth >= 640;
 function openMenu() {
   const host = mode === 'host' || mode === 'local';
   const T0 = view.T;
