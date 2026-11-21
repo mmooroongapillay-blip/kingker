@@ -118,7 +118,7 @@ input{font-family:inherit}
 .deck.shuffling .card:nth-child(3){animation:riffL .4s .2s ease-in-out infinite alternate}
 @keyframes riffL{from{transform:translateX(0) rotate(0)}to{transform:translateX(-22px) rotate(-12deg)}}
 @keyframes riffR{from{transform:translateX(0) rotate(0)}to{transform:translateX(22px) rotate(12deg)}}
-#fly .card.flyc{position:absolute;left:50%;top:41%;transform:translate(-50%,-50%) scale(.9);top:49%;transition:left .3s ease-out,top .3s ease-out,transform .3s ease-out;width:30px!important;height:42px!important}
+#fly .card.flyc{position:absolute;left:50%;top:41%;transform:translate(-50%,-50%) scale(.9);top:49%;transition:left .5s cubic-bezier(.25,.8,.35,1),top .5s cubic-bezier(.25,.8,.35,1),transform .5s ease-out;width:30px!important;height:42px!important}
 .msg{background:rgba(0,0,0,.45);border-radius:12px;padding:0 10px;line-height:1.55}
 .msg:empty{background:none}
 .msg small{color:#cfdad5;font-weight:500}
@@ -140,7 +140,7 @@ input{font-family:inherit}
 .card.mini .u{font-size:13px;right:2px}
 .card.hi{box-shadow:0 0 0 2px var(--gold),0 0 14px rgba(226,179,80,.8)}
 .card.dim{filter:brightness(.55)}
-.deal{animation:deal .35s ease-out both}
+.deal{animation:deal .55s cubic-bezier(.25,.8,.35,1) both}
 @keyframes deal{from{transform:translateY(-14px) scale(.8);opacity:0}to{transform:none;opacity:1}}
 /* seats */
 .seat{cursor:pointer;position:absolute;transform:translate(-50%,-50%);width:86px;display:flex;flex-direction:column;align-items:center;z-index:2}
@@ -1182,7 +1182,10 @@ function hostAddon(si) { if (doAddon(T, si)) { afterChange(); return true; } ret
 let lastRb = {}, lastNr = {}, lastAd = {}, lastSo = {};
 function newGame() { T.stats = {}; T.seats.forEach(s => T.stats[s.id] = [0, 0, 0, 0, 0, 0, 0, 0]); hf = {}; hfN = 0; startGame(T, S); beginDeal(false); trackHandStart(); }
 // Bob shuffles and deals on screen before any action is allowed
-function dealMs(n) { return 1400 + n * 2 * 130 + 500; }
+// slower, dealer-like pace: heads-up slowest, full tables a little quicker so they don't drag
+function dealIv(n) { return n <= 3 ? 330 : n <= 6 ? 260 : 200; }
+const SHUFFLE_MS = 2000;
+function dealMs(n) { return SHUFFLE_MS + n * 2 * dealIv(n) + 900; }
 function beginDeal(lvUp) { const H = T.hand; H.ph0 = H.ph; H.ph = 'deal'; H.lvUp = lvUp ? 1 : 0; H.dm = dealMs(T.seats.filter(s => !s.o).length); }
 function trackHandStart() {
   const H = T.hand; if (!T.stats || !H) return;
@@ -1244,7 +1247,7 @@ function schedule() {
       if (cs.b) { const d = botDecide(T, i, S.holes[i]); if (!doAct( i, d.a, d.x)) doAct( i, 'fold'); }
       else { const L = legal(T, i); doAct( i, L.canCheck ? 'check' : 'fold'); }
       afterChange();
-    }, cs.b ? 650 + Math.random() * 1100 : 900);
+    }, (cs.b ? 650 + Math.random() * 1100 : 900) + (H.st > 0 && !(H.last && H.last.st === H.st) ? 1100 : 0));
   }
 }
 let lastTick = performance.now();
@@ -1533,7 +1536,7 @@ $('#b-copy').onclick = () => {
 };
 $('#b-lobby-leave').onclick = () => leaveTable();
 
-let dealt = {};
+let dealt = {}, boardSig = '';
 function seatPos(k, n) {
   const ang = (90 + k * 360 / n) * Math.PI / 180;
   const w = document.getElementById('tablewrap').clientWidth || 380, half = 46 / w * 100 + 1;
@@ -1555,12 +1558,20 @@ function renderGame() {
   // board
   let bh = '';
   const winCards = H && H.win ? new Set(Object.values(H.win).flat()) : null;
-  for (let k = 0; k < 5; k++) {
-    const c = H ? H.board[k] : undefined;
-    if (c === undefined) bh += '<div class="slot"></div>';
-    else { const key = 'b' + c; const cls = (dealt[key] ? '' : 'deal') + (winCards && H.ph === 'done' && H.shown ? (winCards.has(c) ? ' hi' : ' dim') : ''); dealt[key] = 1; bh += cardHTML(c, cls); }
+  const hiOn = !!(winCards && H.ph === 'done' && H.shown);
+  const bsig = H ? H.n + ':' + H.board.join(',') + ':' + hiOn + ':' + prefs.four : '-';
+  if (bsig !== boardSig) {   // redraw only when the board changes, so the flop can land card by card
+    boardSig = bsig; let nw = 0;
+    for (let k = 0; k < 5; k++) {
+      const c = H ? H.board[k] : undefined;
+      if (c === undefined) { bh += '<div class="slot"></div>'; continue; }
+      const key = 'b' + c, fresh = !dealt[key];
+      let html = cardHTML(c, (fresh ? 'deal' : '') + (hiOn ? (winCards.has(c) ? ' hi' : ' dim') : ''));
+      if (fresh) html = html.replace('<div class="card', `<div style="animation-delay:${(nw++) * 320}ms" class="card`);
+      dealt[key] = 1; bh += html;
+    }
+    $('#board').innerHTML = bh;
   }
-  $('#board').innerHTML = bh;
   if (H) {
     const collected = sum(H.tot) - sum(H.bets);
     $('#pot').innerHTML = `Pot ${money(sum(H.tot), T0)}` + (collected && sum(H.bets) && H.ph !== 'done' ? ` <small>· in middle ${money(collected, T0)}</small>` : '');
@@ -1620,9 +1631,9 @@ function runDealAnim(T0, H) {
         const p = seatPos((i - base + n) % n, n);
         requestAnimationFrame(() => requestAnimationFrame(() => { c.style.left = (p.x + (r ? 3 : -3)) + '%'; c.style.top = (p.y - 7) + '%'; c.style.transform = `translate(-50%,-50%) rotate(${r ? 8 : -8}deg) scale(.8)`; }));
         beep(1500, 0.025, 0.015);
-      }, k++ * 130);
+      }, k++ * dealIv(order.length));
     }
-  }, 1400);
+  }, SHUFFLE_MS);
 }
 // ---------- chips & table effects ----------
 const betPos = p => { const land = innerWidth > innerHeight && innerWidth >= 640; return { x: 50 + (p.x - 50) * (land ? 0.62 : 0.55), y: 50 + (p.y - 50) * (land ? 0.5 : 0.7) }; };
@@ -1757,12 +1768,12 @@ function renderHero() {
   const s = T0.seats[me];
   let cards = '', hl = '', sl = `Stack ${money(s.s, T0)}${T0.set.turn && s.tb < T0.set.tb * 1000 ? ` · time bank ${Math.ceil(s.tb / 1000)}s` : ''}`;
   if (s.o) { hl = `Finished ${ordinal(s.pl)}`; sl = 'You can keep watching.'; }
-  else if (H && H.ph === 'deal') { hl = 'Bob is dealing…'; }
+  else if (H && H.ph === 'deal') { hl = ''; }
   else if (H && view.hole) {
     const folded = H.fold[me];
     cards = view.hole.map(c => { const key = 'h' + H.n + c; const x = cardHTML(c, 'big ' + (dealt[key] ? '' : 'deal') + (folded ? ' dim' : '') + (H.win && H.win[me] && H.win[me].includes(c) ? ' hi' : '')); dealt[key] = 1; return x; }).join('');
     hl = folded ? 'Folded' : '';
-  } else if (H && !H.fold[me]) { cards = cardHTML(null, 'big') + cardHTML(null, 'big'); hl = 'Dealing…'; }
+  } else if (H && !H.fold[me]) { cards = cardHTML(null, 'big') + cardHTML(null, 'big'); hl = ''; }
   el.innerHTML = `<div class="hc">${cards}</div><div class="info"><div class="hl">${esc(hl)}</div><div class="sl">${sl}</div></div>`;
 }
 let raiseTo = 0, actSig = '', raiseOpen = false, raiseSig = '';
@@ -1836,10 +1847,10 @@ function renderActions(force) {
     $('#a-show').onclick = () => showMine(); return;
   }
   const rbRow = canRebuy(T0, me) ? `<button class="btn" id="a-vrb" style="margin-top:8px;padding:10px">🔁 Rebuy +${T0.set.stack.toLocaleString('en-US')} at next hand${costTxt(T0)}</button>` : (s.rbp ? `<div class="ainfo" style="padding:6px 0 0">🔁 Rebuy confirmed — chips added at the next hand</div>` : '');
-  el.innerHTML = rbRow ? `<div class="ainfo" style="padding:8px 0 0">${H.fold[me] ? 'Folded — waiting for next hand' : H.allin[me] ? 'You\'re all-in 🤞' : H.ph === 'done' ? 'Next hand coming…' : H.ph === 'deal' ? 'Bob is dealing…' : 'Waiting…'}</div>${rbRow}` : '';
+  el.innerHTML = rbRow ? `<div class="ainfo" style="padding:8px 0 0">${H.fold[me] ? 'Folded — waiting for next hand' : H.allin[me] ? 'You\'re all-in 🤞' : H.ph === 'done' ? 'Next hand coming…' : H.ph === 'deal' ? '' : 'Waiting…'}</div>${rbRow}` : '';
   if ($('#a-vrb')) { $('#a-vrb').onclick = reqRebuy; return; }
   if (rbRow) return;
-  el.innerHTML = `<div class="ainfo">${H.fold[me] ? 'Folded — waiting for next hand' : H.allin[me] ? 'You\'re all-in 🤞' : H.ph === 'done' ? 'Next hand coming…' : H.ph === 'deal' ? 'Bob is shuffling and dealing…' : 'Waiting…'}</div>`;
+  el.innerHTML = `<div class="ainfo">${H.fold[me] ? 'Folded — waiting for next hand' : H.allin[me] ? 'You\'re all-in 🤞' : H.ph === 'done' ? 'Next hand coming…' : H.ph === 'deal' ? '' : 'Waiting…'}</div>`;
 }
 function reqRebuy() { const i = mySeat(); if (mode === 'client') R.presence({ rbq: Date.now() }).catch(() => {}); else hostRebuy(i); toast('Rebuy requested 🔁'); actSig = ''; }
 function reqNoRebuy() { const i = mySeat(); if (mode === 'client') R.presence({ nrq: Date.now() }).catch(() => {}); else hostNoRebuy(i); }
