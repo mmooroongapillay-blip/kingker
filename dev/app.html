@@ -1484,8 +1484,8 @@ function renderActions(force) {
     el.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { pre = pre === b.dataset.p ? null : b.dataset.p; renderActions(true); });
     return;
   }
-  if (H.ph === 'done' && view.hole && !(H.shown && H.shown[me])) {
-    el.innerHTML = `<div class="abtns"><button class="abtn a-call" id="a-show">Show my cards<small>${view.hole.map(c => RANKS[c % 13].replace('T', '10') + '♠♥♦♣'[(c / 13) | 0]).join(' ')}</small></button></div>`;
+  if (H.ph === 'done' && view.hole && !H.fold[me] && !(H.shown && Object.keys(H.shown).length) && H.res && H.res[0] && H.res[0].w.includes(me)) {
+    el.innerHTML = `<div class="ainfo" style="padding:6px 0 4px">Everyone folded — your cards stay hidden</div><button class="btn" id="a-show" style="padding:9px">Show my cards (optional)</button>`;
     $('#a-show').onclick = () => showMine(); return;
   }
   const rbRow = canRebuy(T0, me) ? `<button class="btn" id="a-vrb" style="margin-top:8px;padding:10px">🔁 Rebuy +${T0.set.stack.toLocaleString('en-US')} at next hand${costTxt(T0)}</button>` : (s.rbp ? `<div class="ainfo" style="padding:6px 0 0">🔁 Rebuy confirmed — chips added at the next hand</div>` : '');
@@ -1734,7 +1734,6 @@ function openMenu() {
     <div class="seg" style="margin:0 0 8px" id="m-vlang"><button data-v="en-GB" class="${prefs.vlang === 'en-GB' ? 'on' : ''}">English</button><button data-v="fr-FR" class="${prefs.vlang === 'fr-FR' ? 'on' : ''}">Français</button></div>
     <button class="mitem" id="m-vtest">🎤 Test microphone <span id="m-vres" class="note" style="max-width:55%;text-align:right"></span></button>
     <button class="mitem" id="m-vconf">Voice raises need a tap to confirm <span class="tog ${prefs.vconfirm ? 'on' : ''}"></span></button>` : ''}
-    <button class="mitem" id="m-muck">Auto-muck losing hands <span class="tog ${prefs.muck ? 'on' : ''}"></span></button>
     <button class="mitem" id="m-snd">Sounds <span class="tog ${prefs.sound ? 'on' : ''}"></span></button>
     ${host && T0 && T0.status === 'play' ? `<button class="mitem" id="m-pause">${T0.paused ? '▶️ Resume game' : '⏸ Pause game'}</button>` : ''}
     <button class="mitem danger" id="m-leave">${host && mode === 'host' ? 'End table for everyone' : 'Leave table'}</button>
@@ -1756,12 +1755,6 @@ function openMenu() {
   };
   if ($('#m-vconf')) $('#m-vconf').onclick = () => { prefs.vconfirm = !prefs.vconfirm; savePrefs(); openMenu(); };
   if ($('#m-vlang')) $('#m-vlang').querySelectorAll('button').forEach(b => b.onclick = () => { prefs.vlang = b.dataset.v; savePrefs(); openMenu(); });
-  $('#m-muck').onclick = () => {
-    prefs.muck = !prefs.muck; savePrefs();
-    if (mode === 'client' && R) R.presence({ mk: prefs.muck ? 1 : 0 }).catch(() => {});
-    else if (T) { const i = T.seats.findIndex(s => s.id === myId); if (i >= 0) T.seats[i].mk = prefs.muck ? 1 : 0; }
-    openMenu();
-  };
   if ($('#m-pause')) $('#m-pause').onclick = () => { T.paused = T.paused ? 0 : 1; timerSig = ''; afterChange(); closeSheet(); };
   $('#m-leave').onclick = () => leaveTable();
   $('#m-close').onclick = closeSheet;

@@ -243,11 +243,10 @@ function showdown(T, S) {
     H.res.push({ amt: p.amt, w, h: p.el.length > 1 ? handLabel(best) : null });
     if (pi === 0) for (const j of w) H.win[j] = ev[j].cards;
   });
-  // winners and all-in players must show; others muck if their auto-muck is on (seat.mk)
   const winners = new Set(H.res.flatMap(r => r.w));
   H.shown = {}; H.muck = [];
   for (const j of live) {
-    if (H.allinShow || winners.has(j) || H.allin[j] || !T.seats[j].mk) H.shown[j] = S.holes[j]; else H.muck.push(j);
+    H.shown[j] = S.holes[j];   // showdown: every player still in the hand turns their cards over
   }
   if (live.length < 2) { H.shown = null; H.muck = null; }
 }
@@ -255,7 +254,7 @@ function showdown(T, S) {
 const REBUY_WINDOW = 15000;
 function anteOf(T) { if (!T.set.ante) return 0; const st = startLevelIdx(T.set.stack); if (T.lvl < st + 3) return 0; return Math.max(1, Math.round(blindsOf(T)[1] / 10)); }
 function inRebuyPeriod(T) { return !!T.set.rb && T.lvl < startLevelIdx(T.set.stack) + T.set.rbl; }
-function canRebuy(T, i) { const s = T.seats[i]; return inRebuyPeriod(T) && s.o !== 1 && (s.rb || 0) < T.set.rb && !s.rbp && (s.o === 2 || s.s <= T.set.stack); }
+function canRebuy(T, i) { const s = T.seats[i]; return (s.o === 2 ? !!T.set.rb : inRebuyPeriod(T)) && s.o !== 1 && (s.rb || 0) < T.set.rb && !s.rbp && (s.o === 2 || s.s <= T.set.stack); }
 function order0(T, from) { const out = []; for (let k = 0; k < T.seats.length; k++) { const j = (from + k) % T.seats.length; if (!T.seats[j].o) out.push(j); } return out; }
 // rebuy: busted player (o=2) comes straight back; a player still in gets chips at the start of the next hand
 function doRebuy(T, i) {
