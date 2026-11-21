@@ -1958,6 +1958,16 @@ function openStructure(set, curLvl, fromSetup) {
 // ================== VOICE BETTING ==================
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const voiceOK = () => !!SR && !(typeof window.claude !== 'undefined' && !window.KK_SITE);
+// why voice isn't available here, in plain words for this device
+function voiceWhy() {
+  const ua = navigator.userAgent, ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const standalone = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+  if (typeof window.claude !== 'undefined' && !window.KK_SITE) return 'Voice isn\'t available on the Claude page. Open the KingKER website in Safari or Chrome.';
+  if (ios && standalone) return 'On iPhone, voice doesn\'t work from the home-screen icon. Open the KingKER link in Safari to use voice.';
+  if (ios && (/CriOS|FxiOS|EdgiOS/.test(ua) || !/Safari\//.test(ua) || /FBAN|FBAV|Instagram|WhatsApp|Line\//.test(ua))) return 'On iPhone, voice only works in Safari. Tap the share or ••• button, choose "Open in Safari", then try again.';
+  if (/Firefox\//.test(ua)) return 'Firefox doesn\'t support voice. Use Chrome or Safari.';
+  return 'This browser doesn\'t support voice. Use Chrome, or Safari on iPhone.';
+}
 // spoken command -> action. L = legal(), pv(f) = pot-fraction amount, bb = big blind
 function parseVoice(text, L, pv, bb) {
   let t = ' ' + String(text || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[’']/g, ' ').replace(/[^a-z0-9.,½¾ -]/g, ' ').replace(/\s+/g, ' ') + ' ';
@@ -1991,7 +2001,7 @@ function parseVoice(text, L, pv, bb) {
 }
 let rec = null, listening = false;
 function startVoice() {
-  if (!voiceOK()) { toast('Voice betting isn\'t supported in this browser. Try Chrome, or Safari on iPhone.'); return; }
+  if (!voiceOK()) { toast(voiceWhy(), 6000); return; }
   if (listening) { try { rec.stop(); } catch (e) {} return; }
   try {
     rec = new SR(); rec.lang = prefs.vlang; rec.interimResults = false; rec.maxAlternatives = 3; rec.continuous = false;
@@ -1999,7 +2009,7 @@ function startVoice() {
   const btn = $('#a-mic');
   rec.onstart = () => { listening = true; if ($('#a-mic')) $('#a-mic').classList.add('on'); };
   rec.onend = () => { listening = false; if ($('#a-mic')) $('#a-mic').classList.remove('on'); };
-  rec.onerror = e => { listening = false; if ($('#a-mic')) $('#a-mic').classList.remove('on'); toast(e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'Allow the microphone for KingKER in your browser settings' : e.error === 'no-speech' ? 'Didn\'t hear anything — tap 🎙 and speak' : 'Voice error: ' + e.error); };
+  rec.onerror = e => { listening = false; if ($('#a-mic')) $('#a-mic').classList.remove('on'); toast(e.error === 'service-not-allowed' && /iPhone|iPad/.test(navigator.userAgent) ? 'Turn on Dictation: iPhone Settings → General → Keyboard → Enable Dictation, then try again' : e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'Allow the microphone for KingKER: tap "aA" in Safari\'s address bar → Website Settings → Microphone → Allow' : e.error === 'network' ? 'Voice needs an internet connection — check your signal and try again' : e.error === 'no-speech' ? 'Didn\'t hear anything — tap 🎙 and speak' : 'Voice error: ' + e.error); };
   rec.onresult = ev => {
     const alts = Array.from(ev.results[0] || []).map(a => a.transcript);
     handleVoice(alts);
@@ -2040,7 +2050,7 @@ function openMenu() {
     <button class="mitem" id="m-bb">Show amounts in big blinds <span class="tog ${prefs.bb ? 'on' : ''}"></span></button>
     <button class="mitem" id="m-four">Four-colour deck <span class="tog ${prefs.four ? 'on' : ''}"></span></button>
     <button class="mitem" id="m-voice">🎙 Voice betting <span class="tog ${prefs.voice ? 'on' : ''}"></span></button>
-    ${prefs.voice ? `<div style="padding:0 4px 8px" class="note">${voiceOK() ? 'Tap 🎙 on your turn and say: <b>fold</b>, <b>check</b>, <b>call</b>, <b>raise to 200</b>, <b>bet 3 big blinds</b>, <b>half pot</b>, <b>pot</b>, <b>all in</b>. French works too: <b>je me couche</b>, <b>parole</b>, <b>je suis</b>, <b>relance à 200</b>, <b>tapis</b>.' : '⚠️ This browser can\'t do voice. Use Chrome, or Safari on iPhone (open the link in Safari).'}</div>
+    ${prefs.voice ? `<div style="padding:0 4px 8px" class="note">${voiceOK() ? 'Tap 🎙 on your turn and say: <b>fold</b>, <b>check</b>, <b>call</b>, <b>raise to 200</b>, <b>bet 3 big blinds</b>, <b>half pot</b>, <b>pot</b>, <b>all in</b>. French works too: <b>je me couche</b>, <b>parole</b>, <b>je suis</b>, <b>relance à 200</b>, <b>tapis</b>.' : '⚠️ ' + voiceWhy()}</div>
     <div class="seg" style="margin:0 0 8px" id="m-vlang"><button data-v="en-GB" class="${prefs.vlang === 'en-GB' ? 'on' : ''}">English</button><button data-v="fr-FR" class="${prefs.vlang === 'fr-FR' ? 'on' : ''}">Français</button></div>
     <button class="mitem" id="m-vconf">Voice raises need a tap to confirm <span class="tog ${prefs.vconfirm ? 'on' : ''}"></span></button>` : ''}
     <button class="mitem" id="m-muck">Auto-muck losing hands <span class="tog ${prefs.muck ? 'on' : ''}"></span></button>
