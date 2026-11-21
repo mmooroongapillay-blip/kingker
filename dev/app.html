@@ -25,7 +25,7 @@
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <!--/SITE-->
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Bodoni+Moda:opsz,wght@6..96,600;6..96,800&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#0a100e; --panel:#121b18; --panel2:#18241f; --line:#25342e; --text:#eef3f0; --mute:#8fa39a;
@@ -233,6 +233,83 @@ input{font-family:inherit}
 .toast{position:fixed;left:50%;top:70px;transform:translateX(-50%);background:#24302b;border:1px solid var(--line);padding:10px 16px;border-radius:12px;font-size:14px;z-index:80;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.5);max-width:90%;text-align:center}
 .banner{position:absolute;left:50%;top:8px;transform:translateX(-50%);background:var(--red);padding:5px 12px;border-radius:10px;font-size:12px;font-weight:700;z-index:10;white-space:nowrap}
 .banner.gold{background:var(--gold2)}
+/* ===== KingKER royal card room ===== */
+:root{--emerald:#0F5C43;--emerald-d:#062D22;--mahogany:#4A2416;--mahogany-d:#1E0D07;--brass:#C9A24A;--ivory:#FBF8F1;--ink:#17161A;--cardred:#C2272D;--room:#0B1A1C}
+html,body{background:radial-gradient(ellipse at 50% 0%,#15322d 0%,var(--room) 55%,#071113 100%) fixed}
+.topbar{background:linear-gradient(180deg,rgba(14,30,28,.95),rgba(11,26,28,.6));border-bottom:1px solid rgba(201,162,74,.18)}
+.lvlbox b,.tcode b{font-family:'Barlow Condensed',Outfit,sans-serif;letter-spacing:.4px;font-size:17px}
+.rail{background:radial-gradient(ellipse at 50% 20%,#6b3a22,var(--mahogany) 45%,var(--mahogany-d) 100%);box-shadow:0 26px 60px rgba(0,0,0,.7),0 0 0 2px rgba(0,0,0,.6),inset 0 2px 0 rgba(255,220,170,.18),inset 0 -6px 14px rgba(0,0,0,.5)}
+.rail::before{content:"";position:absolute;inset:1.6%;border-radius:50%/42%;box-shadow:inset 0 0 0 1.5px rgba(201,162,74,.75),0 0 0 1px rgba(0,0,0,.35);pointer-events:none}
+.felt{inset:3.4%;background:
+  radial-gradient(ellipse at 50% 38%,rgba(255,255,255,.10),transparent 55%),
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .22 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E"),
+  radial-gradient(ellipse at 50% 45%,#14745a 0%,var(--emerald) 45%,var(--emerald-d) 100%);
+  box-shadow:inset 0 0 0 2px rgba(0,0,0,.35),inset 0 18px 50px rgba(0,0,0,.45),inset 0 -10px 30px rgba(0,0,0,.35)}
+.felt::before{content:"";position:absolute;inset:9% 8%;border-radius:50%/42%;border:1.5px solid rgba(201,162,74,.22)}
+.felt::after{content:"♛\A KingKER";white-space:pre;top:auto;bottom:13%;font-family:'Bodoni Moda',serif;font-weight:800;font-size:15px;letter-spacing:5px;line-height:1.15;color:rgba(232,200,120,.16);text-shadow:0 1px 0 rgba(0,0,0,.25)}
+/* cards: ivory with Bodoni indices */
+.card{background:linear-gradient(170deg,#fffdf8,var(--ivory) 60%,#efe9dc);color:var(--ink);border-radius:6px;box-shadow:0 3px 8px rgba(0,0,0,.45),inset 0 0 0 1px rgba(0,0,0,.08)}
+.card .r{font-family:'Bodoni Moda',serif;font-weight:800;letter-spacing:-.5px}
+.card.s1,.card.s2{color:var(--cardred)}
+.card.back{background:radial-gradient(circle at 50% 50%,rgba(201,162,74,.35) 0 18%,transparent 19%),repeating-linear-gradient(45deg,#5a1720 0 5px,#6e1e28 5px 10px);border:2px solid var(--ivory)}
+.card.back::after{content:"♛";color:rgba(255,236,190,.8);font-size:13px}
+.card.big{border-radius:10px;box-shadow:0 10px 24px rgba(0,0,0,.55),inset 0 0 0 1px rgba(0,0,0,.08)}
+.hero .hc .card.big:first-child{transform:rotate(-6deg) translateY(4px);margin-right:-10px}
+.hero .hc .card.big:last-child{transform:rotate(5deg)}
+.hero .hc .card.big.deal{animation:none}
+.hero .hl{font-family:'Bodoni Moda',serif;font-size:19px;color:#f1d48a}
+.hero .sl{font-family:'Barlow Condensed',Outfit,sans-serif;font-size:15px;letter-spacing:.3px}
+/* seats: avatar with countdown ring, plate below */
+.seat{width:78px}
+.seat .mc{position:absolute;top:-6px;right:2px;height:auto;margin:0;z-index:1;gap:0}
+.seat .mc .card{width:22px;height:31px;border-radius:4px}
+.seat .mc .card:first-child{transform:rotate(-8deg);margin-right:-9px}
+.seat .mc .card:last-child{transform:rotate(7deg)}
+.seat .mc.show{top:-30px;right:auto;left:50%;transform:translateX(-50%);z-index:6;gap:2px}
+.seat .mc.show .card{width:30px;height:42px;transform:none;margin:0}
+.seat .mc.show .card .r{font-size:15px}.seat .mc.show .card .u{font-size:17px}
+.ring{--p:1;position:relative;width:52px;height:52px;border-radius:50%;padding:3px;background:rgba(0,0,0,.45);z-index:2;box-shadow:0 6px 14px rgba(0,0,0,.5)}
+.ring.on{background:conic-gradient(var(--gold) calc(var(--p)*1turn),rgba(255,255,255,.08) 0);box-shadow:0 0 0 2px rgba(227,182,87,.25),0 0 22px rgba(227,182,87,.55)}
+.ring.on.hot,.ring.on.tbank{background:conic-gradient(#ff5d4f calc(var(--p)*1turn),rgba(255,255,255,.08) 0);box-shadow:0 0 22px rgba(255,93,79,.6)}
+.avt{width:100%;height:100%;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:15px;color:#1a140a;background:radial-gradient(circle at 35% 30%,#fff8,transparent 45%),var(--c);border:2px solid rgba(20,12,6,.55)}
+.zz{position:absolute;right:-6px;top:-6px;font-size:16px}
+.ring .dbtn{left:auto;right:-10px;top:auto;bottom:-2px;width:21px;height:21px;background:radial-gradient(circle at 40% 35%,#fff,#d9d3c4);border:1px solid #8a7a55;font-family:'Bodoni Moda',serif}
+.plate{margin-top:-8px;padding:8px 4px 4px;border-radius:10px;background:linear-gradient(180deg,rgba(18,28,26,.96),rgba(8,14,13,.96));border:1px solid rgba(201,162,74,.28)}
+.plate .nm{font-size:11px;color:#cfd8d3}
+.plate .stk{font-family:'Barlow Condensed',Outfit,sans-serif;font-size:16px;letter-spacing:.3px;color:#fff6dc}
+.seat.turn .plate{border-color:var(--gold);box-shadow:0 0 14px rgba(227,182,87,.35)}
+.seat.me .plate{background:linear-gradient(180deg,#2b2412,#140f06);border-color:rgba(227,182,87,.6)}
+.seat.win .ring{box-shadow:0 0 0 3px var(--green),0 0 26px rgba(31,164,99,.8)}
+.seat.win .plate{border-color:var(--green)}
+.seat.away-s .ring{filter:grayscale(.85) brightness(.75)}
+.seat.away-s .stk{font-family:Outfit,sans-serif;font-size:11px;color:#e9b765}
+.tag{top:-10px;right:-8px;font-size:9px;padding:2px 7px;border-radius:9px;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+.eq{bottom:-15px}
+/* chip stacks */
+.chips{display:inline-flex;flex-direction:column-reverse;position:relative;width:16px;height:18px}
+.chips i{display:block;width:16px;height:5px;border-radius:50%;margin-top:-1px;background:var(--cc);border:1px solid rgba(0,0,0,.45);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.55)}
+.chips i:first-child{margin-top:auto}
+.chips.t1{--cc:#e8e6df}.chips.t2{--cc:#c8352f}.chips.t3{--cc:#1f8a55}.chips.t4{--cc:#22262b}.chips.t5{--cc:#8a63c9}
+.bet{background:rgba(5,15,12,.7);border:1px solid rgba(201,162,74,.25);padding:1px 8px 1px 4px;border-radius:14px;font-family:'Barlow Condensed',Outfit,sans-serif;font-size:14px;letter-spacing:.3px;gap:4px;z-index:3}
+.pot{font-family:'Barlow Condensed',Outfit,sans-serif;font-size:17px;letter-spacing:.4px;background:rgba(4,16,12,.55);border:1px solid rgba(201,162,74,.3);padding:3px 14px}
+#fx{position:absolute;inset:0;pointer-events:none;z-index:7}
+.fxchip{position:absolute;transform:translate(-50%,-50%);transition:left .45s cubic-bezier(.3,.7,.3,1),top .45s cubic-bezier(.3,.7,.3,1)}
+.fxplus{position:absolute;transform:translate(-50%,-50%);font-family:'Barlow Condensed',Outfit,sans-serif;font-weight:700;font-size:20px;color:#ffe08a;text-shadow:0 2px 6px rgba(0,0,0,.8);animation:plus 1.8s ease-out forwards}
+@keyframes plus{0%{opacity:0;transform:translate(-50%,-30%) scale(.8)}15%{opacity:1;transform:translate(-50%,-90%) scale(1.1)}100%{opacity:0;transform:translate(-50%,-230%)}}
+.bav-felt{background:radial-gradient(circle at 50% 35%,#3d3020,#16100a);border-color:var(--brass)}
+/* actions */
+.abtn{border-radius:14px;font-size:16.5px;letter-spacing:.2px;box-shadow:0 6px 16px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.18)}
+.abtn small{font-family:'Barlow Condensed',Outfit,sans-serif;font-size:14px;letter-spacing:.3px}
+.a-fold{background:linear-gradient(180deg,#7a2a2c,#55191b);border:1px solid #8f3a3c}
+.a-call{background:linear-gradient(180deg,#1f9b62,#127046)}
+.a-raise{background:linear-gradient(180deg,#f2cd6d,#c48f2c)}
+.rpanel{background:rgba(14,26,24,.92);border-color:rgba(201,162,74,.25)}
+.slrow .amt{font-family:'Barlow Condensed',Outfit,sans-serif;font-size:19px}
+.sitout{display:flex;align-items:center;gap:12px;background:rgba(40,30,10,.85);border:1px solid rgba(227,182,87,.45);border-radius:14px;padding:10px 14px;margin-bottom:8px}
+.sitout .zzbig{font-size:28px}
+.sitout b{display:block;font-size:16px;color:#f1d48a}
+.sitout span{font-size:13px;color:#d9cfb8}
+@media (prefers-reduced-motion: reduce){.deal,.bubble,.fxplus,.bsay.pop{animation:none!important}.flyc,.fxchip{transition:none!important}}
 @media (min-width:640px){
   .seat{width:104px}.plate .nm{font-size:13px}.plate .stk{font-size:15px}
   .card{width:46px;height:66px}.card .r{font-size:20px}.card .u{font-size:26px}.slot{width:46px;height:66px}
@@ -337,6 +414,7 @@ input{font-family:inherit}
     <div class="center"><div class="bav bav-felt" title="Bob, your dealer">🤵<span>BOB</span></div><div class="board" id="board"></div><div class="pot" id="pot"></div><div class="msg" id="msg"></div></div>
     <div id="seats"></div>
     <div id="fly"></div>
+    <div id="fx"></div>
     <div id="gbanner"></div>
   </div>
   <div class="hero" id="hero"></div>
@@ -612,6 +690,7 @@ function hostPeers(ch) {
       if (pr.rbq && +pr.rbq > (lastRb[id] || 0)) { lastRb[id] = +pr.rbq; if (doRebuy(T, si)) changed = true; }
       if (pr.nrq && +pr.nrq > (lastNr[id] || 0)) { lastNr[id] = +pr.nrq; if (rebuyExpired(T, si)) changed = true; }
       if (pr.adq && +pr.adq > (lastAd[id] || 0)) { lastAd[id] = +pr.adq; if (doAddon(T, si)) changed = true; }
+      if (pr.soq && +pr.soq > (lastSo[id] || 0)) { lastSo[id] = +pr.soq; if (!T.seats[si].aw && !T.seats[si].o) { T.seats[si].aw = 1; changed = true; } }
       if (pr.back && pr.back > (lastBack[id] || 0)) { lastBack[id] = pr.back; if (T.seats[si].aw) { T.seats[si].aw = 0; T.seats[si].to = 0; changed = true; } }
       const a = pr.act;
       if (a && typeof a === 'object' && +a.q > (lastQ[id] || 0)) {
@@ -624,7 +703,7 @@ function hostPeers(ch) {
     } else if (T.status === 'lobby' && pr.sit && !kicked.has(id)) {
       if (addSeat(T, id, cleanName(pr.name) || 'Player', false)) {
         peerOf[id] = p.peer; pubOf[id] = pr.pub && pr.pub.x ? { x: String(pr.pub.x), y: String(pr.pub.y) } : null;
-        lastQ[id] = (pr.act && +pr.act.q) || 0; lastBack[id] = pr.back || 0; lastRb[id] = +pr.rbq || 0; lastNr[id] = +pr.nrq || 0; lastAd[id] = +pr.adq || 0; lastShow[id] = (pr.show && +pr.show.q) || 0;
+        lastQ[id] = (pr.act && +pr.act.q) || 0; lastBack[id] = pr.back || 0; lastRb[id] = +pr.rbq || 0; lastNr[id] = +pr.nrq || 0; lastAd[id] = +pr.adq || 0; lastSo[id] = +pr.soq || 0; lastShow[id] = (pr.show && +pr.show.q) || 0;
         T.seats[T.seats.length - 1].mk = pr.mk === 0 ? 0 : 1; changed = true;
       } else spect++;
     } else spect++;
@@ -656,7 +735,7 @@ function startAddonBreak() {
 function hostRebuy(si) { if (doRebuy(T, si)) { afterChange(); return true; } return false; }
 function hostNoRebuy(si) { if (rebuyExpired(T, si)) { afterChange(); return true; } return false; }
 function hostAddon(si) { if (doAddon(T, si)) { afterChange(); return true; } return false; }
-let lastRb = {}, lastNr = {}, lastAd = {};
+let lastRb = {}, lastNr = {}, lastAd = {}, lastSo = {};
 function newGame() { T.stats = {}; T.seats.forEach(s => T.stats[s.id] = [0, 0, 0, 0, 0, 0, 0, 0]); hf = {}; hfN = 0; startGame(T, S); beginDeal(false); trackHandStart(); }
 // Bob shuffles and deals on screen before any action is allowed
 function dealMs(n) { return 1400 + n * 2 * 130 + 500; }
@@ -800,7 +879,7 @@ function takeOver() {
   T = JSON.parse(JSON.stringify(old)); S = {};
   const oldHost = T.hostId; T.ep = (T.ep || 0) + 1; T.hostId = myId; mode = 'host';
   peerOf = {}; pubOf = {}; kicked = new Set(); encCache = {};
-  for (const p of R.peers()) { const pr = p.presence || {}; if (!pr.id) continue; lastRb[pr.id] = +pr.rbq || 0; lastNr[pr.id] = +pr.nrq || 0; lastAd[pr.id] = +pr.adq || 0; lastQ[pr.id] = (pr.act && +pr.act.q) || 0; lastShow[pr.id] = (pr.show && +pr.show.q) || 0; lastBack[pr.id] = pr.back || 0; if (pr.pub && pr.pub.x) pubOf[pr.id] = { x: String(pr.pub.x), y: String(pr.pub.y) }; }
+  for (const p of R.peers()) { const pr = p.presence || {}; if (!pr.id) continue; lastRb[pr.id] = +pr.rbq || 0; lastNr[pr.id] = +pr.nrq || 0; lastAd[pr.id] = +pr.adq || 0; lastSo[pr.id] = +pr.soq || 0; lastQ[pr.id] = (pr.act && +pr.act.q) || 0; lastShow[pr.id] = (pr.show && +pr.show.q) || 0; lastBack[pr.id] = pr.back || 0; if (pr.pub && pr.pub.x) pubOf[pr.id] = { x: String(pr.pub.x), y: String(pr.pub.y) }; }
   const oi = T.seats.findIndex(x => x.id === oldHost); if (oi >= 0 && !T.seats[oi].o) T.seats[oi].aw = 1;
   const H = T.hand;
   if (T.status === 'play' && H) {
@@ -1052,7 +1131,7 @@ function renderGame() {
   bobTalk(T0, H);
   if (H && H.ph === 'deal' && dealAnimN !== H.n) { dealAnimN = H.n; runDealAnim(T0, H); }
   if (!H || H.ph !== 'deal') $('#fly').innerHTML = '';
-  renderSeats(); renderHero(); renderActions(); renderEmotes();
+  renderSeats(); tableFx(T0, H); renderHero(); renderActions(); renderEmotes();
 }
 // ---------- Dealer Bob ----------
 let dealAnimN = 0, bobLast = '';
@@ -1100,6 +1179,40 @@ function runDealAnim(T0, H) {
     }
   }, 1400);
 }
+// ---------- chips & table effects ----------
+const betPos = p => ({ x: 50 + (p.x - 50) * 0.55, y: 50 + (p.y - 50) * 0.7 });
+function chipStack(amt, bb) {
+  const r = amt / (bb || 1), tier = r < 1 ? 't1' : r < 4 ? 't2' : r < 15 ? 't3' : r < 50 ? 't4' : 't5';
+  const n = Math.max(1, Math.min(5, 1 + Math.floor(Math.log2(r + 1))));
+  return `<span class="chips ${tier}">${'<i></i>'.repeat(n)}</span>`;
+}
+let fxPrev = null;
+function wrapPt(el) { const w = $('#tablewrap').getBoundingClientRect(), r = el.getBoundingClientRect(); return { x: (r.left + r.width / 2 - w.left) / w.width * 100, y: (r.top + r.height / 2 - w.top) / w.height * 100 }; }
+function flyChips(from, to, amtTxt, tier, delay) {
+  const fx = $('#fx'), c = document.createElement('div');
+  c.className = 'fxchip'; c.innerHTML = `<span class="chips ${tier}"><i></i><i></i><i></i></span>`;
+  c.style.left = from.x + '%'; c.style.top = from.y + '%'; fx.appendChild(c);
+  setTimeout(() => requestAnimationFrame(() => { c.style.left = to.x + '%'; c.style.top = to.y + '%'; }), delay || 0);
+  setTimeout(() => c.remove(), (delay || 0) + 700);
+  if (amtTxt) setTimeout(() => { const f = document.createElement('div'); f.className = 'fxplus'; f.textContent = amtTxt; f.style.left = to.x + '%'; f.style.top = to.y + '%'; fx.appendChild(f); setTimeout(() => f.remove(), 1900); }, (delay || 0) + 450);
+}
+function tableFx(T0, H) {
+  const prev = fxPrev; const n = T0.seats.length, me = mySeat(), base = me >= 0 ? me : 0;
+  fxPrev = H ? { n: H.n, bets: H.bets.slice(), res: !!H.res } : null;
+  if (!H || !prev || prev.n !== H.n || window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const potEl = $('#pot'); if (!potEl) return; const pot = wrapPt(potEl);
+  const seatP = i => seatPos((i - base + n) % n, n);
+  let collected = false;
+  if (sum(prev.bets) > 0 && sum(H.bets) === 0) {
+    prev.bets.forEach((b, i) => { if (b > 0) { flyChips(betPos(seatP(i)), pot, '', 't3', 0); collected = true; } });
+    beep(700, 0.05, 0.03);
+  }
+  if (H.res && !prev.res) {
+    const won = {}; H.res.forEach(r => { const sh = Math.floor(r.amt / r.w.length); r.w.forEach(i => won[i] = (won[i] || 0) + sh); });
+    Object.keys(won).forEach((i, k) => flyChips(pot, seatP(+i), '+' + money(won[i], T0), 't4', (collected ? 450 : 50) + k * 120));
+    setTimeout(() => { beep(880, 0.06, 0.04); setTimeout(() => beep(1320, 0.09, 0.04), 90); }, collected ? 500 : 100);
+  }
+}
 function renderSeats() {
   if (!view.T || view.T.status === 'lobby') return;
   const T0 = view.T, H = T0.hand, n = T0.seats.length, me = mySeat(), base = me >= 0 ? me : 0;
@@ -1109,31 +1222,36 @@ function renderSeats() {
     const turn = H && H.ph === 'bet' && H.turn === i;
     const cls = ['seat', turn ? 'turn' : '', H && H.fold[i] && !s.o ? 'fold' : '', s.o === 1 ? 'out' : s.o === 2 ? 'wr' : '', i === me ? 'me' : '', H && H.res && H.res.some(r => r.w.includes(i)) ? 'win' : ''].join(' ');
     let mc = '';
-    if (H && H.shown && H.shown[i] && H.ph !== 'deal') mc = H.shown[i].map(c => cardHTML(c, H.win && H.win[i] ? (H.win[i].includes(c) ? 'hi' : '') : '')).join('');
+    if (H && H.shown && H.shown[i] && H.ph !== 'deal' && i !== me) mc = H.shown[i].map(c => cardHTML(c, H.win && H.win[i] ? (H.win[i].includes(c) ? 'hi' : '') : '')).join('');
     else if (H && H.muck && H.muck.includes(i)) mc = '<div class="mucked">MUCK</div>';
     else if (H && !s.o && !H.fold[i] && H.ph !== 'deal') {
-      if (H.shown && H.shown[i]) mc = H.shown[i].map(c => cardHTML(c, H.win && H.win[i] ? (H.win[i].includes(c) ? 'hi' : '') : '')).join('');
-      else if (i !== me) mc = cardHTML(null) + cardHTML(null);
+      if (i !== me && !(H.shown && H.shown[i])) mc = cardHTML(null) + cardHTML(null);
     }
     const last = H && H.last && H.last.i === i && H.ph === 'bet' && H.last.st === H.st ? H.last.a : (H && H.allin[i] && !H.fold[i] ? 'allin' : '');
     const tag = last ? `<div class="tag ${last}">${last === 'allin' ? 'ALL-IN' : last}</div>` : '';
-    const tb = turn && T0.set.turn ? `<div class="tbar${H.tbOn ? ' tb' : ''}" id="tbar"><i></i></div>` : '';
+    const ringId = turn && T0.set.turn ? ' id="tring"' : '';
     const eqv = H && H.allinShow && H.ph === 'run' && H.shown && H.shown[i] ? eqFor(H)[i] : undefined;
     const eqb = eqv !== undefined ? `<div class="eq">${eqv}%</div>` : '';
     const bub = bubbles[s.id] && bubbles[s.id].until > Date.now() ? `<div class="bubble">${esc(bubbles[s.id].m)}</div>` : '';
     const stk = s.o === 2 ? '🔁 Rebuy?' : s.o ? (s.pl ? ordinal(s.pl) : 'Out') : (H && H.allin[i] && s.s === 0 && !H.res ? 'ALL-IN' : money(s.s, T0));
-    h += `<div class="${cls}" data-sid="${esc(s.id)}" style="left:${p.x}%;top:${p.y}%">${bub}<div class="mc">${mc}</div>
-      <div class="plate">${tag}<div class="nm">${s.b ? '<span class="bot-i">🤖</span>' : ''}${esc(s.n)}</div><div class="stk">${stk}</div>${s.aw ? '<div class="away">SITTING OUT</div>' : ''}${tb}${eqb}</div>
-      ${H && H.d === i && !s.o ? '<div class="dbtn">D</div>' : ''}</div>`;
+    const showCls = H && H.shown && H.shown[i] && H.ph !== 'deal' && i !== me ? ' show' : '';
+    h += `<div class="${cls}${s.aw ? ' away-s' : ''}" data-sid="${esc(s.id)}" style="left:${p.x}%;top:${p.y}%">${bub}<div class="mc${showCls}">${mc}</div>
+      <div class="ring${turn ? ' on' : ''}${turn && H.tbOn ? ' tbank' : ''}"${ringId} style="--p:1"><div class="avt" style="--c:${avColor(s.id)}">${s.b ? '🤖' : esc(initials(s.n))}</div>${s.aw ? '<div class="zz">💤</div>' : ''}${H && H.d === i && !s.o ? '<div class="dbtn">D</div>' : ''}</div>
+      <div class="plate">${tag}<div class="nm">${esc(s.n)}</div><div class="stk">${s.aw && !s.o ? 'Sitting out' : stk}</div>${eqb}</div></div>`;
     if (H && H.bets[i]) {
-      const bx = 50 + (p.x - 50) * 0.68, by = 50 + (p.y - 50) * 0.62;
-      h += `<div class="bet" style="left:${bx}%;top:${by}%"><span class="chip"></span>${money(H.bets[i], T0)}</div>`;
+      const bp = betPos(p);
+      h += `<div class="bet" style="left:${bp.x}%;top:${bp.y}%">${chipStack(H.bets[i], H.bl[1])}<span>${money(H.bets[i], T0)}</span></div>`;
     }
   });
   $('#seats').innerHTML = h;
   updateClocks();
 }
-$('#seats').addEventListener('click', e => { const el = e.target.closest('[data-sid]'); if (el) openPlayerStats(el.dataset.sid); });
+$('#seats').addEventListener('click', e => {
+  const el = e.target.closest('[data-sid]'); if (!el) return;
+  const me = mySeat();
+  if (el.dataset.sid === myId && me >= 0 && view.T.seats[me].aw) { imBack(); return; }
+  openPlayerStats(el.dataset.sid);
+});
 const pct = (a, b) => b ? Math.round(a / b * 100) + '%' : '–';
 function statRow(s, T0) {
   const r = (T0.stats && T0.stats[s.id]) || [0, 0, 0, 0, 0, 0, 0, 0];
@@ -1215,7 +1333,10 @@ function renderActions(force) {
     el.innerHTML = `<div class="mytime" id="brkclk"></div>` + (s.ad ? `<div class="ainfo">Add-on taken ✓ (+${T0.set.stack.toLocaleString('en-US')})</div>` : `<div class="abtns"><button class="abtn a-raise" id="a-ad">➕ Take add-on<small>+${T0.set.stack.toLocaleString('en-US')} chips${costTxt(T0)}</small></button></div>`);
     if ($('#a-ad')) $('#a-ad').onclick = reqAddon; updateClocks(); return;
   }
-  if (s.aw) { el.innerHTML = `<button class="btn gold" id="b-back">I'm back — deal me in</button>`; $('#b-back').onclick = imBack; return; }
+  if (s.aw) {
+    el.innerHTML = `<div class="sitout"><div class="zzbig">💤</div><div class="so-t"><b>You're sitting out</b><span>Your hands are folded for you until you come back.</span></div></div><button class="btn gold" id="b-back">I'm back, deal me in</button>`;
+    $('#b-back').onclick = imBack; return;
+  }
   if (!H) { el.innerHTML = ''; return; }
   if (myTurn && pending) { el.innerHTML = `<div class="ainfo">Sending…</div>`; return; }
   if (myTurn) {
@@ -1273,6 +1394,11 @@ function showMine() {
   else { const i = mySeat(); if (i >= 0 && showCards(i, H.n)) publish(); }
   $('#actions').innerHTML = '<div class="ainfo">Cards shown 👀</div>';
 }
+function sitOut() {
+  if (mode === 'client') R.presence({ soq: Date.now() }).catch(() => {});
+  else { const i = mySeat(); if (i >= 0) { T.seats[i].aw = 1; afterChange(); } }
+  toast('You\'re sitting out. Tap "I\'m back" to return'); closeSheet();
+}
 function imBack() {
   if (mode === 'client') R.presence({ back: Date.now() }).catch(() => {});
   else { const i = mySeat(); if (i >= 0) { T.seats[i].aw = 0; T.seats[i].to = 0; afterChange(); } }
@@ -1294,13 +1420,13 @@ function updateClocks() {
   if (!inTable || !view.T || view.T.status !== 'play') return;
   const T0 = view.T, H = T0.hand, c = $('#lvlclk');
   if (c) c.textContent = mmss(lvlLeftNow());
-  const tb = $('#tbar');
+  const tb = $('#tring');
   if (tb && H && T0.set.turn) {
     const el = view.live || T0.paused ? 0 : performance.now() - view.recv;
     let pct;
     if (H.tbOn) { const s = T0.seats[H.turn]; pct = Math.max(0, (s.tb - el) / (T0.set.tb * 1000)); }
     else pct = Math.max(0, (H.tl - el) / (T0.set.turn * 1000));
-    tb.firstChild.style.width = (pct * 100).toFixed(1) + '%';
+    tb.style.setProperty('--p', pct.toFixed(3)); tb.classList.toggle('hot', pct < 0.3);
     const mt = $('#mytime');
     if (mt && H.turn === mySeat()) {
       const left = Math.max(0, H.tbOn ? T0.seats[H.turn].tb - el : H.tl - el), secs = Math.ceil(left / 1000);
@@ -1379,6 +1505,7 @@ function openMenu() {
   const host = mode === 'host' || mode === 'local';
   const T0 = view.T;
   openSheet('menu', `<h2>Menu</h2>
+    ${T0 && T0.status === 'play' && mySeat() >= 0 && !T0.seats[mySeat()].o ? (T0.seats[mySeat()].aw ? '<button class="mitem" id="m-sit">▶️ I\'m back, deal me in</button>' : '<button class="mitem" id="m-sit">💤 Sit out (skip hands)</button>') : ''}
     <button class="mitem" id="m-struct">📋 Blind structure <span>›</span></button>
     <button class="mitem" id="m-stats">📊 Player stats <span>›</span></button>
     <button class="mitem" id="m-hist">📜 Hand history <span>›</span></button>
@@ -1393,6 +1520,7 @@ function openMenu() {
   $('#m-hist').onclick = openHistory;
   $('#m-stats').onclick = openStatsTable;
   $('#m-struct').onclick = () => openStructure(view.T.set, view.T.lvl, false);
+  if ($('#m-sit')) $('#m-sit').onclick = () => { if (view.T.seats[mySeat()].aw) { imBack(); closeSheet(); } else sitOut(); };
   $('#m-rank').onclick = openRanks;
   $('#m-bb').onclick = () => { prefs.bb = !prefs.bb; savePrefs(); render(); openMenu(); };
   $('#m-four').onclick = () => { prefs.four = !prefs.four; savePrefs(); openMenu(); };
