@@ -307,6 +307,20 @@ html,body{background:radial-gradient(ellipse at 50% 0%,#15322d 0%,var(--room) 55
 .sitout .zzbig{font-size:28px}
 .sitout b{display:block;font-size:16px;color:#f1d48a}
 .sitout span{font-size:13px;color:#d9cfb8}
+/* clear card faces: bold sans index, suit under it, big suit bottom-right */
+.card{background:#fff;color:#111}
+.card .r{font-family:Outfit,system-ui,sans-serif;font-weight:800;letter-spacing:-.5px;line-height:.95;display:flex;flex-direction:column;align-items:center;left:4px;top:3px;font-size:17px}
+.card .r.ten{letter-spacing:-1.5px}
+.card .r i{font-style:normal;font-size:.72em;line-height:1;margin-top:1px}
+.card .u{font-size:21px;right:3px;bottom:1px}
+.card.s1,.card.s2{color:#D11F2B}
+.four .card.s2{color:#1957C2}.four .card.s3{color:#11804A}
+.card.big .r{font-size:30px;left:7px;top:5px}
+.card.big .u{font-size:38px;right:6px;bottom:2px}
+.card.mini .r{font-size:11px;left:2px;top:1px}.card.mini .r i{display:none}.card.mini .u{font-size:12px}
+.seat .mc .card .r{font-size:12px;left:2px;top:1px}.seat .mc .card .r i{display:none}
+.seat .mc.show .card .r{font-size:15px;left:3px}.seat .mc.show .card .r i{display:block}.seat .mc.show .card .u{font-size:15px}
+.card.dim{filter:brightness(.6)}
 @media (prefers-reduced-motion: reduce){.deal,.bubble,.fxplus,.bsay.pop{animation:none!important}.flyc,.fxchip{transition:none!important}}
 @media (min-width:640px){
   .seat{width:104px}.plate .nm{font-size:13px}.plate .stk{font-size:15px}
@@ -882,7 +896,7 @@ function money(x, T0) {
 function cardHTML(c, cls) {
   if (c == null) return `<div class="card back ${cls || ''}"></div>`;
   const r = RANKS[c % 13], s = (c / 13) | 0;
-  return `<div class="card s${s} ${cls || ''}"><span class="r">${r === 'T' ? '10' : r}</span><span class="u">${'♠♥♦♣'[s]}</span></div>`;
+  return `<div class="card s${s} ${cls || ''}"><span class="r${r === 'T' ? ' ten' : ''}">${r === 'T' ? '10' : r}<i>${'♠♥♦♣'[s]}</i></span><span class="u">${'♠♥♦♣'[s]}</span></div>`;
 }
 const mmss = ms => { ms = Math.max(0, ms); const s = Math.ceil(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
@@ -1574,7 +1588,8 @@ function tableFx(T0, H) {
 function renderSeats() {
   if (!view.T || view.T.status === 'lobby') return;
   const T0 = view.T, H = T0.hand, n = T0.seats.length, me = mySeat(), base = me >= 0 ? me : 0;
-  let h = '';
+  let h = '', boardBox = null;
+  try { const w = $('#tablewrap').getBoundingClientRect(), r = $('#board').getBoundingClientRect(); if (w.width && r.width) boardBox = { l: (r.left - w.left) / w.width * 100, r: (r.right - w.left) / w.width * 100, t: (r.top - w.top) / w.height * 100, b: (r.bottom - w.top) / w.height * 100 }; } catch (e) {}
   T0.seats.forEach((s, i) => {
     const k = (i - base + n) % n, p = seatPos(k, n);
     const turn = H && H.ph === 'bet' && H.turn === i;
@@ -1598,6 +1613,7 @@ function renderSeats() {
       <div class="plate">${tag}<div class="nm">${esc(s.n)}</div><div class="stk">${s.aw && !s.o ? 'Sitting out' : stk}</div>${eqb}</div></div>`;
     if (H && H.bets[i]) {
       const bp = betPos(p);
+      if (boardBox && bp.x > boardBox.l - 9 && bp.x < boardBox.r + 9 && bp.y > boardBox.t - 3 && bp.y < boardBox.b + 3) bp.y = bp.y < (boardBox.t + boardBox.b) / 2 ? boardBox.t - 4 : boardBox.b + 4;
       h += `<div class="bet" style="left:${bp.x}%;top:${bp.y}%">${chipStack(H.bets[i], H.bl[1])}<span>${money(H.bets[i], T0)}</span></div>`;
     }
   });
@@ -1667,7 +1683,7 @@ function renderHero() {
   else if (H && view.hole) {
     const folded = H.fold[me];
     cards = view.hole.map(c => { const key = 'h' + H.n + c; const x = cardHTML(c, 'big ' + (dealt[key] ? '' : 'deal') + (folded ? ' dim' : '') + (H.win && H.win[me] && H.win[me].includes(c) ? ' hi' : '')); dealt[key] = 1; return x; }).join('');
-    hl = folded ? 'Folded' : (H.board.length >= 3 ? handLabel(eval7(view.hole.concat(H.board)).score) : preflopLabel(view.hole));
+    hl = folded ? 'Folded' : '';
   } else if (H && !H.fold[me]) { cards = cardHTML(null, 'big') + cardHTML(null, 'big'); hl = 'Dealing…'; }
   el.innerHTML = `<div class="hc">${cards}</div><div class="info"><div class="hl">${esc(hl)}</div><div class="sl">${sl}</div></div>`;
 }
