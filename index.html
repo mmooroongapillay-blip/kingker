@@ -328,6 +328,7 @@ html,body{background:radial-gradient(ellipse at 50% 0%,#15322d 0%,var(--room) 55
 .turnrow{display:flex;align-items:center;justify-content:center;gap:10px;margin:0 0 4px}
 .turnrow .mytime{margin:0}
 .mic{width:40px;height:40px;border-radius:50%;font-size:19px;background:linear-gradient(180deg,#2b3d37,#18251f);border:1.5px solid rgba(227,182,87,.6);box-shadow:0 4px 10px rgba(0,0,0,.4)}
+.mitem#m-vtest.on{box-shadow:0 0 0 2px #ff6b5e inset}
 .mic.on{background:radial-gradient(circle,#ff6b5e,#b3261e);border-color:#ffb3aa;animation:micpulse 1s ease-in-out infinite}
 @keyframes micpulse{0%,100%{box-shadow:0 0 0 0 rgba(255,107,94,.6)}50%{box-shadow:0 0 0 10px rgba(255,107,94,0)}}
 .abtn.confirm{animation:confirmglow 1s ease-in-out infinite}
@@ -2000,21 +2001,47 @@ function parseVoice(text, L, pv, bb) {
   return null;
 }
 let rec = null, listening = false;
-function startVoice() {
-  if (!voiceOK()) { toast(voiceWhy(), 6000); return; }
-  if (listening) { try { rec.stop(); } catch (e) {} return; }
-  try {
-    rec = new SR(); rec.lang = prefs.vlang; rec.interimResults = false; rec.maxAlternatives = 3; rec.continuous = false;
-  } catch (e) { toast('Microphone unavailable'); return; }
-  const btn = $('#a-mic');
-  rec.onstart = () => { listening = true; if ($('#a-mic')) $('#a-mic').classList.add('on'); };
-  rec.onend = () => { listening = false; if ($('#a-mic')) $('#a-mic').classList.remove('on'); };
-  rec.onerror = e => { listening = false; if ($('#a-mic')) $('#a-mic').classList.remove('on'); toast(e.error === 'service-not-allowed' && /iPhone|iPad/.test(navigator.userAgent) ? 'Turn on Dictation: iPhone Settings → General → Keyboard → Enable Dictation, then try again' : e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'Allow the microphone for KingKER: tap "aA" in Safari\'s address bar → Website Settings → Microphone → Allow' : e.error === 'network' ? 'Voice needs an internet connection — check your signal and try again' : e.error === 'no-speech' ? 'Didn\'t hear anything — tap 🎙 and speak' : 'Voice error: ' + e.error); };
-  rec.onresult = ev => {
-    const alts = Array.from(ev.results[0] || []).map(a => a.transcript);
-    handleVoice(alts);
+// Safari on iPhone often never ends the session or sends a "final" result, so show words live
+// and act ~1.2 s after the speaker pauses.
+function listenOnce(onDone, onLive) {
+  if (!voiceOK()) { toast(voiceWhy(), 6000); return null; }
+  let r;
+  try { r = new SR(); r.lang = prefs.vlang; r.interimResults = true; r.maxAlternatives = 3; r.continuous = false; }
+  catch (e) { toast('Microphone unavailable on this browser'); return null; }
+  let done = false, latest = [], quiet = 0;
+  const hard = setTimeout(() => stopIt(), 8000);
+  const finish = () => { if (done) return; done = true; clearTimeout(quiet); clearTimeout(hard); listening = false; markMic(false); onDone(latest, null); };
+  const stopIt = () => { try { r.stop(); } catch (e) {} setTimeout(finish, 400); };
+  r.onstart = () => { listening = true; markMic(true); };
+  r.onresult = ev => {
+    const res = ev.results[ev.results.length - 1]; if (!res) return;
+    latest = Array.from(res).map(a => a.transcript).filter(Boolean);
+    if (onLive) onLive(latest[0] || '');
+    clearTimeout(quiet);
+    if (res.isFinal) { try { r.stop(); } catch (e) {} finish(); } else quiet = setTimeout(stopIt, 1200);
   };
-  try { rec.start(); } catch (e) { toast('Could not start the microphone'); }
+  r.onerror = e => { if (done) return; done = true; clearTimeout(quiet); clearTimeout(hard); listening = false; markMic(false); onDone(latest, e.error || 'error'); };
+  r.onend = () => { if (!done) setTimeout(finish, 150); };
+  try { r.start(); } catch (e) { done = true; clearTimeout(hard); toast('Could not start the microphone (' + (e.name || 'error') + ')'); return null; }
+  return r;
+}
+function markMic(on) { const b = $('#a-mic'); if (b) b.classList.toggle('on', on); const t = $('#m-vtest'); if (t) t.classList.toggle('on', on); }
+function voiceErrText(err) {
+  return err === 'service-not-allowed' && /iPhone|iPad/.test(navigator.userAgent) ? 'Turn on Dictation: iPhone Settings → General → Keyboard → Enable Dictation, then try again'
+    : err === 'not-allowed' || err === 'service-not-allowed' ? 'Allow the microphone for KingKER: tap "aA" in Safari\'s address bar → Website Settings → Microphone → Allow'
+    : err === 'network' ? 'Voice needs an internet connection — check your signal and try again'
+    : err === 'no-speech' ? 'Didn\'t hear anything — tap 🎙 and speak'
+    : err === 'audio-capture' ? 'No microphone found — another app may be using it'
+    : 'Voice error: ' + err;
+}
+function startVoice() {
+  if (listening) { try { rec && rec.stop(); } catch (e) {} return; }
+  rec = listenOnce((alts, err) => {
+    const mt = $('#mytime');
+    if (err) { toast(voiceErrText(err), 5000); return; }
+    if (!alts.length) { toast('Didn\'t catch that — tap 🎙 and speak'); return; }
+    handleVoice(alts);
+  }, live => { const mt = $('#mytime'); if (mt) mt.textContent = '🎙 "' + live + '"'; });
 }
 function handleVoice(alts) {
   const T0 = view.T, H = T0 && T0.hand, me = mySeat();
@@ -2052,6 +2079,7 @@ function openMenu() {
     <button class="mitem" id="m-voice">🎙 Voice betting <span class="tog ${prefs.voice ? 'on' : ''}"></span></button>
     ${prefs.voice ? `<div style="padding:0 4px 8px" class="note">${voiceOK() ? 'Tap 🎙 on your turn and say: <b>fold</b>, <b>check</b>, <b>call</b>, <b>raise to 200</b>, <b>bet 3 big blinds</b>, <b>half pot</b>, <b>pot</b>, <b>all in</b>. French works too: <b>je me couche</b>, <b>parole</b>, <b>je suis</b>, <b>relance à 200</b>, <b>tapis</b>.' : '⚠️ ' + voiceWhy()}</div>
     <div class="seg" style="margin:0 0 8px" id="m-vlang"><button data-v="en-GB" class="${prefs.vlang === 'en-GB' ? 'on' : ''}">English</button><button data-v="fr-FR" class="${prefs.vlang === 'fr-FR' ? 'on' : ''}">Français</button></div>
+    <button class="mitem" id="m-vtest">🎤 Test microphone <span id="m-vres" class="note" style="max-width:55%;text-align:right"></span></button>
     <button class="mitem" id="m-vconf">Voice raises need a tap to confirm <span class="tog ${prefs.vconfirm ? 'on' : ''}"></span></button>` : ''}
     <button class="mitem" id="m-muck">Auto-muck losing hands <span class="tog ${prefs.muck ? 'on' : ''}"></span></button>
     <button class="mitem" id="m-snd">Sounds <span class="tog ${prefs.sound ? 'on' : ''}"></span></button>
@@ -2067,6 +2095,12 @@ function openMenu() {
   $('#m-four').onclick = () => { prefs.four = !prefs.four; savePrefs(); openMenu(); };
   $('#m-snd').onclick = () => { prefs.sound = !prefs.sound; savePrefs(); openMenu(); };
   $('#m-voice').onclick = () => { prefs.voice = !prefs.voice; savePrefs(); actSig = ''; openMenu(); if (view.T) renderActions(true); };
+  if ($('#m-vtest')) $('#m-vtest').onclick = () => {
+    const out = $('#m-vres'); out.textContent = 'Listening… say "call"';
+    rec = listenOnce((alts, err) => { out.textContent = err ? '⚠️ ' + voiceErrText(err) + ' [' + err + ']' : alts.length ? '✅ Heard: "' + alts[0] + '"' : '⚠️ Heard nothing'; },
+      live => { out.textContent = '… "' + live + '"'; });
+    if (!rec) out.textContent = '⚠️ ' + voiceWhy();
+  };
   if ($('#m-vconf')) $('#m-vconf').onclick = () => { prefs.vconfirm = !prefs.vconfirm; savePrefs(); openMenu(); };
   if ($('#m-vlang')) $('#m-vlang').querySelectorAll('button').forEach(b => b.onclick = () => { prefs.vlang = b.dataset.v; savePrefs(); openMenu(); });
   $('#m-muck').onclick = () => {
