@@ -1614,7 +1614,22 @@ const cardTxt = c => { const r = RANKS[c % 13], s = (c / 13) | 0; return `<b sty
 let lastTurnSig = '', prevStatus = null, prevHandN = 0, pre = null, preSt = -1, pendingAct = null;
 function mySeat() { return view.T ? view.T.seats.findIndex(s => s.id === myId) : -1; }
 function turnSig() { const T0 = view.T, H = T0 && T0.hand, me = mySeat(); return H ? [H.n, H.st, H.turn, H.cur, me >= 0 ? H.bets[me] : '', H.ph].join('|') : ''; }
+// ---- keep the screen awake while at a table (the host's phone runs the game; Safari iOS 16.4+, Chrome) ----
+let wakeLock = null, wakeBusy = false;
+async function wakeSync() {
+  const want = inTable && document.visibilityState === 'visible' && !!(view.T && view.T.status !== 'over');
+  if (!('wakeLock' in navigator)) return;
+  try {
+    if (want && !wakeLock && !wakeBusy) {
+      wakeBusy = true;
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    } else if (!want && wakeLock) { const l = wakeLock; wakeLock = null; await l.release(); }
+  } catch (e) { wakeLock = null; } finally { wakeBusy = false; }
+}
+document.addEventListener('visibilitychange', () => wakeSync());
 function onState() {
+  wakeSync();
   if (!inTable || !view.T) return;
   const T0 = view.T, H = T0.hand, me = mySeat();
   logState();
@@ -2304,7 +2319,7 @@ async function leaveTable(skipAsk) {
   if (R) { try { await R.leave(); } catch (e) {} }
   R = null; mode = null; T = null; S = null; inTable = false; code = ''; prevStatus = null; prevHandN = 0;
   view = { T: null, hole: null, holeN: 0, recv: 0, live: false, hostGone: false, spect: 0 };
-  show('home'); refreshHome();
+  show('home'); refreshHome(); wakeSync();
 }
 
 // ================== FIREBASE (standalone website) ==================
