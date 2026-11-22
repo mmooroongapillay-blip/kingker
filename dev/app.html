@@ -65,6 +65,10 @@ input{font-family:inherit}
 .btn:disabled{opacity:.45;cursor:not-allowed}
 .row{display:flex;gap:10px}
 .row>*{flex:1}
+.fairbox{background:rgba(201,162,74,.08);border:1px solid rgba(201,162,74,.35);border-radius:12px;padding:12px 14px;margin:6px 0 4px;font-size:14px}
+.fairbox code,#lob-fair code{font-family:inherit;font-weight:700;color:#E6C877;letter-spacing:.5px}
+.fairline{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;margin-top:12px;padding:10px 12px;border-radius:12px;border:1px solid rgba(201,162,74,.35);background:rgba(201,162,74,.08);color:inherit;font:inherit;font-size:13.5px;text-align:left;cursor:pointer}
+.fairline span{color:#C9A24A;font-size:18px}
 .note{font-size:13px;color:var(--mute);line-height:1.45}
 .note.warn{color:#e9b765}
 .fmts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -479,6 +483,7 @@ html,body{background:radial-gradient(ellipse at 50% 0%,#15322d 0%,var(--room) 55
     <p class="lbl" id="lob-count">Players</p>
     <div class="plist" id="lob-list"></div>
     <p class="note" id="lob-set" style="margin:12px 0 0"></p>
+    <p class="note" id="lob-fair" style="margin:8px 0 0;cursor:pointer"></p>
   </div>
   <div id="lob-host" class="row">
     <button class="btn" id="b-addbot">+ Add bot</button>
@@ -691,6 +696,7 @@ async function createTable() {
   T = newTable({ fmt: setup.fmt, stack: setup.stack, mins: setup.mins, turn: setup.turn, tb: setup.tb, ante: setup.ante, rb: setup.rb, rbl: setup.rbl, ad: setup.ad, buyin, code });
   T.hostId = myId; T.ep = 0;
   S = {}; peerOf = {}; pubOf = {}; lastQ = {}; kicked = new Set(); encCache = {};
+  fairCommit();
   addSeat(T, myId, myName, false); T.seats[0].mk = prefs.muck ? 1 : 0;
   if (setup.local) {
     mode = 'local'; inTable = true;
@@ -724,6 +730,7 @@ function saveHost() { if (T) LS.set('aic_host', { T, S, code, lastQ, ts: Date.no
 let pubBusy = false, pubDirty = false, lastPubAt = 0;
 async function publish() {
   if (!T) return;
+  fairReveal();
   T.v++; saveHost(); refreshView();
   if (!R) return;
   if (pubBusy) { pubDirty = true; return; }
@@ -767,6 +774,7 @@ function hostPeers(ch) {
       if (peerOf[id] !== p.peer) continue;
       if (pr.pub && pr.pub.x && (!pubOf[id] || pubOf[id].x !== pr.pub.x)) { pubOf[id] = { x: String(pr.pub.x), y: String(pr.pub.y) }; changed = true; }
       if (T.status === 'lobby') { const nm = cleanName(pr.name); if (nm && nm !== T.seats[si].n) { T.seats[si].n = nm; changed = true; } }
+      if (pr.fs && T.fair && T.status !== 'play' && pr.fs.c === T.fair.c && /^[0-9a-f]{8,64}$/.test(pr.fs.s) && T.seats[si].fs !== pr.fs.s) { T.seats[si].fs = pr.fs.s; changed = true; }
       const mk = pr.mk === 0 ? 0 : 1;
       if (T.seats[si].mk !== mk) { T.seats[si].mk = mk; changed = true; }
       if (pr.show && +pr.show.q > (lastShow[id] || 0)) {
@@ -791,6 +799,7 @@ function hostPeers(ch) {
         peerOf[id] = p.peer; pubOf[id] = pr.pub && pr.pub.x ? { x: String(pr.pub.x), y: String(pr.pub.y) } : null;
         lastQ[id] = (pr.act && +pr.act.q) || 0; lastBack[id] = pr.back || 0; lastRb[id] = +pr.rbq || 0; lastNr[id] = +pr.nrq || 0; lastAd[id] = +pr.adq || 0; lastSo[id] = +pr.soq || 0; lastShow[id] = (pr.show && +pr.show.q) || 0;
         T.seats[T.seats.length - 1].mk = pr.mk === 0 ? 0 : 1; changed = true;
+        if (pr.fs && T.fair && pr.fs.c === T.fair.c && /^[0-9a-f]{8,64}$/.test(pr.fs.s)) T.seats[T.seats.length - 1].fs = pr.fs.s;
       } else spect++;
     } else spect++;
   }
@@ -822,7 +831,93 @@ function hostRebuy(si) { if (doRebuy(T, si)) { afterChange(); return true; } ret
 function hostNoRebuy(si) { if (rebuyExpired(T, si)) { afterChange(); return true; } return false; }
 function hostAddon(si) { if (doAddon(T, si)) { afterChange(); return true; } return false; }
 let lastRb = {}, lastNr = {}, lastAd = {}, lastSo = {};
-function newGame() { T.stats = {}; T.seats.forEach(s => T.stats[s.id] = [0, 0, 0, 0, 0, 0, 0, 0]); hf = {}; hfN = 0; startGame(T, S); beginDeal(false); trackHandStart(); }
+// ================== FAIR SHUFFLE ==================
+// The host locks a secret key (only its SHA-256 fingerprint is shown) BEFORE anyone joins or the game starts.
+// Each player's phone adds its own random number after seeing that fingerprint. Every deck = shuffle driven by
+// SHA-256(key | players' numbers | hand number). At the end the key is revealed and every phone re-checks every hand.
+function fairCommit() { S.seed = randHex(32); T.fair = { c: sha256(S.seed) }; T.seats.forEach(x => { delete x.fs; }); }
+function fairFix() { if (!T.fair || !S.seed) return; T.fair.mix = T.seats.filter(x => !x.b && x.fs).map(x => x.fs).sort().join('.'); T.seats.forEach(x => { delete x.fs; }); }
+function fairReveal() {
+  if (T.status !== 'over' || !T.fair || T.fair.mix == null) return;
+  T.fairDone = { c: T.fair.c, s: S.seed || null, mix: T.fair.mix, lost: T.fair.lost || 0 };
+  fairCommit(); // fresh lock for a rematch
+}
+let myFs = {}; try { myFs = JSON.parse(sessionStorage.getItem('kk_fs') || '{}'); } catch (e) {}
+function fairSync() {
+  const T0 = view.T; if (!T0 || !T0.fair || mode !== 'client' || !R || T0.status === 'play') return;
+  if (myFs[T0.fair.c]) { if (myFs._sent === T0.fair.c) return; }
+  else { myFs = { [T0.fair.c]: randHex(16), ...(T0.fairDone && myFs[T0.fairDone.c] ? { [T0.fairDone.c]: myFs[T0.fairDone.c] } : {}) }; }
+  myFs._sent = T0.fair.c; try { sessionStorage.setItem('kk_fs', JSON.stringify(myFs)); } catch (e) {}
+  R.presence({ fs: { c: T0.fair.c, s: myFs[T0.fair.c] } }).catch(() => { myFs._sent = ''; });
+}
+let fairLogs = {};
+function fairRecord() {
+  const T0 = view.T, H = T0 && T0.hand; if (!H || !H.ord || !H.fs || !T0.fair || T0.status === 'lobby') return;
+  const c = T0.status === 'over' && T0.fairDone ? T0.fairDone.c : T0.fair.c;
+  const L = fairLogs[c] = fairLogs[c] || {}, me = mySeat();
+  const r = L[H.n] = L[H.n] || { ord: H.ord.slice(), b: [], sh: {}, mh: null, me };
+  if (H.board.length > r.b.length) r.b = H.board.slice();
+  if (H.shown) for (const i in H.shown) r.sh[i] = H.shown[i].slice();
+  if (view.hole && view.holeN === H.n && !r.mh) r.mh = view.hole.slice(0, 2);
+}
+function fairVerify(fd) {
+  const out = { keyOk: false, hands: 0, cards: 0, bad: [], mine: null, players: fd && fd.mix ? fd.mix.split('.').filter(Boolean).length : 0 };
+  if (!fd || !fd.s) return out;
+  out.keyOk = sha256(fd.s) === fd.c;
+  if (myFs[fd.c]) out.mine = fd.mix.split('.').includes(myFs[fd.c]);
+  const L = fairLogs[fd.c] || {}, same = (a, b) => a.length === b.length && a.every(x => b.includes(x));
+  for (const n in L) {
+    if (fd.lost && +n >= fd.lost) continue;
+    const r = L[n], dl = replayDeal(seededDeck(fairMaterial(fd.s, fd.mix, +n)), r.ord);
+    let ok = r.b.every((x, k) => x === dl.board[k]); let cnt = r.b.length;
+    for (const i in r.sh) { ok = ok && same(r.sh[i], dl.holes[i] || []); if (!(r.mh && +i === r.me)) cnt += 2; }
+    if (r.mh && r.me >= 0) { ok = ok && same(r.mh, dl.holes[r.me] || []); cnt += 2; }
+    out.hands++; out.cards += cnt; if (!ok) out.bad.push(+n);
+  }
+  out.bad.sort((a, b) => a - b);
+  return out;
+}
+function fairLine(T0) {
+  const fd = T0 && T0.fairDone; if (!fd) return '';
+  const v = fairVerify(fd);
+  if (!fd.s) return '🛡 Fair shuffle: the dealer changed phones, so this game can\'t be checked.';
+  if (!v.keyOk) return '⚠️ Fair shuffle: the revealed key doesn\'t match the lock shown at the start.';
+  if (v.bad.length) return `⚠️ Fair shuffle: hand${v.bad.length > 1 ? 's' : ''} #${v.bad.join(', #')} didn't match the locked deck.`;
+  return `🛡 Fair shuffle checked ✓ ${v.hands} hand${v.hands === 1 ? '' : 's'}, ${v.cards} cards — all match the deck locked before the game.`;
+}
+const fp = c => c ? c.slice(0, 4) + ' ' + c.slice(4, 8) + ' ' + c.slice(8, 12) : '';
+function openFair() {
+  const T0 = view.T; if (!T0) return;
+  const fd = T0.status === 'over' ? T0.fairDone : null, cur = T0.fair;
+  let status = '';
+  if (fd) {
+    const v = fairVerify(fd);
+    status = `<div class="fairbox"><b>${esc(fairLine(T0))}</b>
+      <div class="note" style="margin-top:6px">Lock (fingerprint): <code>${fp(fd.c)}…</code><br>Revealed key: <code style="word-break:break-all">${esc(fd.s || '—')}</code><br>
+      Players' random numbers mixed in: ${v.players}${v.mine === true ? ' (yours included ✓)' : v.mine === false ? ' (yours missing ✗)' : ''}</div></div>`;
+  } else if (cur) {
+    const me = mySeat(), mixed = cur.mix != null ? cur.mix.split('.').filter(Boolean) : null;
+    const mine = myFs[cur.c] && mixed ? mixed.includes(myFs[cur.c]) : null;
+    status = `<div class="fairbox"><b>🔒 This game's deck is locked</b>
+      <div class="note" style="margin-top:6px">Fingerprint: <code>${fp(cur.c)}…</code><br>
+      ${mixed ? `Players' random numbers mixed in: ${mixed.length}${mine === true ? ' (yours included ✓)' : mine === false ? ' (yours missing)' : ''}` : 'Players add their random numbers when they join.'}<br>
+      The secret key is revealed when the game ends, and every phone checks every hand automatically.</div></div>`;
+  }
+  openSheet('fair', `<h2>🛡 Fair shuffle</h2>${status}
+    <h3 style="margin:14px 0 4px">How the cards are shuffled</h3>
+    <p class="note">A fresh shuffle every hand: the standard Fisher–Yates method, which makes every order of the 52 cards equally likely. Bob's shuffle on screen is just the animation.</p>
+    <h3 style="margin:14px 0 4px">How you can check it</h3>
+    <p class="note">1. Before anyone joins, the host's phone picks a secret key and shows only its fingerprint (above). It can't change the key later without the fingerprint changing.<br>
+    2. When you join, your phone adds its own random number. So the host couldn't pick or arrange the decks in advance.<br>
+    3. Each hand's deck is built from the key + everyone's numbers + the hand number.<br>
+    4. When the game ends the key is revealed. Your phone rebuilds every deck and checks the board, every hand shown and your own cards. Any mismatch is shown on the results screen.</p>
+    <h3 style="margin:14px 0 4px">Being honest about the limits</h3>
+    <p class="note">The host's phone runs the table, so during a game it can work out the cards. The app never shows them, and the check proves the deck wasn't arranged or changed — but a technically skilled host could still peek. Folded cards stay private: only cards that were shown, the board and your own hand are checked.</p>
+    <button class="btn" id="fair-close" style="margin-top:10px">Close</button>`);
+  $('#fair-close').onclick = closeSheet;
+}
+
+function newGame() { fairFix(); T.stats = {}; T.seats.forEach(s => T.stats[s.id] = [0, 0, 0, 0, 0, 0, 0, 0]); hf = {}; hfN = 0; startGame(T, S); beginDeal(false); trackHandStart(); }
 // Bob shuffles and deals on screen before any action is allowed
 // slower, dealer-like pace: heads-up slowest, full tables a little quicker so they don't drag
 function dealIv(n) { return n <= 3 ? 330 : n <= 6 ? 260 : 200; }
@@ -967,6 +1062,7 @@ function takeOver() {
   const old = view.T;
   T = JSON.parse(JSON.stringify(old)); S = {};
   const oldHost = T.hostId; T.ep = (T.ep || 0) + 1; T.hostId = myId; mode = 'host';
+  if (T.fair && T.status === 'play' && !T.fair.lost) T.fair.lost = T.hand ? T.hand.n : 1;
   peerOf = {}; pubOf = {}; kicked = new Set(); encCache = {};
   for (const p of R.peers()) { const pr = p.presence || {}; if (!pr.id) continue; lastRb[pr.id] = +pr.rbq || 0; lastNr[pr.id] = +pr.nrq || 0; lastAd[pr.id] = +pr.adq || 0; lastSo[pr.id] = +pr.soq || 0; lastQ[pr.id] = (pr.act && +pr.act.q) || 0; lastShow[pr.id] = (pr.show && +pr.show.q) || 0; lastBack[pr.id] = pr.back || 0; if (pr.pub && pr.pub.x) pubOf[pr.id] = { x: String(pr.pub.x), y: String(pr.pub.y) }; }
   const oi = T.seats.findIndex(x => x.id === oldHost); if (oi >= 0 && !T.seats[oi].o) T.seats[oi].aw = 1;
@@ -1048,6 +1144,7 @@ function say(m) {
 let hist = [], logSeen = {};
 function resetLog() { hist = []; logSeen = {}; }
 function logState() {
+  try { fairRecord(); fairSync(); } catch (e) {}
   const T0 = view.T, H = T0 && T0.hand; if (!H || T0.status === 'lobby') return;
   let e = hist[0];
   if (!e || e.n !== H.n) {
@@ -1165,7 +1262,9 @@ function renderLobby() {
   $('#lob-wait').textContent = host ? (T0.seats.length < 2 ? 'Waiting for players… you can also add bots.' : 'Ready when you are.')
     : (me >= 0 ? 'You\'re seated. Waiting for the host to start…' : (T0.seats.length >= f.max ? 'Table is full — you\'ll watch as a spectator.' : 'Taking a seat…'));
   $('#b-copy').classList.toggle('hidden', !host);
+  $('#lob-fair').innerHTML = T0.fair ? `🛡 Deck locked before the game · fingerprint <code>${fp(T0.fair.c)}</code> <u>How to check</u>` : '';
 }
+$('#lob-fair').onclick = () => openFair();
 $('#lob-list').addEventListener('click', e => { const b = e.target.closest('[data-kick]'); if (b) hostKick(b.dataset.kick); });
 $('#b-addbot').onclick = () => addBot();
 $('#b-lstruct').onclick = () => view.T && openStructure(view.T.set, null, false);
@@ -1568,6 +1667,7 @@ function renderOver() {
   const host = mode === 'host' || mode === 'local';
   openSheet('over', `<div class="res-top"><div class="tro">🏆</div><h2>${esc(w.n)} wins!</h2><p class="note">${esc(FORMATS[T0.fmt].name)} · ${T0.hand ? T0.hand.n : 0} hands${po.pool ? ` · prize pool Rs ${po.pool.toLocaleString('en-US')}` : ''}</p></div>
     ${order.map((s, k) => `<div class="place ${k === 0 ? 'first' : ''}"><div class="pn">${ordinal(s.pl)}</div><div class="pname">${s.b ? '🤖 ' : ''}${esc(s.n)}${s.id === myId ? ' (you)' : ''}${s.rb || s.ad ? `<div class="note" style="font-size:11.5px">${s.rb ? s.rb + ' rebuy' + (s.rb > 1 ? 's' : '') : ''}${s.rb && s.ad ? ' · ' : ''}${s.ad ? 'add-on' : ''}</div>` : ''}</div>${po.pool && po.amt[k] ? `<div class="prize">Rs ${po.amt[k].toLocaleString('en-US')}</div>` : ''}</div>`).join('')}
+    ${T0.fairDone ? `<button class="fairline" id="b-fair2">${esc(fairLine(T0))} <span>›</span></button>` : ''}
     <div class="row" style="margin-top:14px">${host ? '<button class="btn gold" id="b-again">Play again</button>' : ''}<button class="btn" id="b-stats2">📊 Stats</button><button class="btn" id="b-hist2">History</button></div>
     <button class="btn" id="b-leave2" style="margin-top:10px">Leave table</button>
     ${host ? '' : '<p class="note" style="text-align:center">The host can start a rematch.</p>'}`);
@@ -1577,6 +1677,7 @@ function renderOver() {
     closeSheet(); newGame(); resetLog(); prevHandN = 0; afterChange();
   };
   $('#b-hist2').onclick = () => openHistory();
+  if ($('#b-fair2')) $('#b-fair2').onclick = openFair;
   $('#b-stats2').onclick = () => openStatsTable();
   $('#b-leave2').onclick = () => leaveTable(true);
   beep(660, 0.15); setTimeout(() => beep(990, 0.25), 160);
@@ -1739,6 +1840,7 @@ function openMenu() {
     <button class="mitem" id="m-stats">📊 Player stats <span>›</span></button>
     <button class="mitem" id="m-hist">📜 Hand history <span>›</span></button>
     <button class="mitem" id="m-rank">🃏 Hand rankings <span>›</span></button>
+    <button class="mitem" id="m-fair">🛡 Fair shuffle — how to check <span>›</span></button>
     <button class="mitem" id="m-bb">Show amounts in big blinds <span class="tog ${prefs.bb ? 'on' : ''}"></span></button>
     <button class="mitem" id="m-four">Four-colour deck <span class="tog ${prefs.four ? 'on' : ''}"></span></button>
     <button class="mitem" id="m-voice">🎙 Voice betting <span class="tog ${prefs.voice ? 'on' : ''}"></span></button>
@@ -1755,6 +1857,7 @@ function openMenu() {
   $('#m-struct').onclick = () => openStructure(view.T.set, view.T.lvl, false);
   if ($('#m-sit')) $('#m-sit').onclick = () => { if (view.T.seats[mySeat()].aw) { imBack(); closeSheet(); } else sitOut(); };
   $('#m-rank').onclick = openRanks;
+  $('#m-fair').onclick = openFair;
   $('#m-bb').onclick = () => { prefs.bb = !prefs.bb; savePrefs(); render(); openMenu(); };
   $('#m-four').onclick = () => { prefs.four = !prefs.four; savePrefs(); openMenu(); };
   $('#m-snd').onclick = () => { prefs.sound = !prefs.sound; savePrefs(); openMenu(); };
