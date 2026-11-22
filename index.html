@@ -1766,7 +1766,7 @@ function renderHero() {
   if (me < 0) { el.innerHTML = `<div class="info"><div class="hl">Spectating</div><div class="sl">The table is full or the game had started when you joined.</div></div>`; return; }
   const s = T0.seats[me];
   let cards = '', hl = '', sl = `Stack ${money(s.s, T0)}${T0.set.turn && s.tb < T0.set.tb * 1000 ? ` · time bank ${Math.ceil(s.tb / 1000)}s` : ''}`;
-  if (s.o) { hl = `Finished ${ordinal(s.pl)}`; sl = 'You can keep watching.'; }
+  if (s.o) { hl = `Finished ${ordinal(s.pl)}`; sl = watchKey === (code || mode) + ':' + me ? 'Watching the rest of the game.' : 'Leave the table or keep watching.'; }
   else if (H && H.ph === 'deal') { hl = ''; }
   else if (H && view.hole) {
     const folded = H.fold[me];
@@ -1791,7 +1791,19 @@ function renderActions(force) {
     el.innerHTML = `<div class="mytime" id="rbclk"></div><div class="abtns"><button class="abtn a-fold" id="a-nr">No thanks</button><button class="abtn a-raise" id="a-rb">🔁 Rebuy<small>+${T0.set.stack.toLocaleString('en-US')} chips${costTxt(T0)}</small></button></div>`;
     $('#a-rb').onclick = reqRebuy; $('#a-nr').onclick = reqNoRebuy; updateClocks(); return;
   }
-  if (s.o) { el.innerHTML = `<div class="ainfo">Eliminated in ${ordinal(s.pl)} place — watching the rest.</div>`; return; }
+  if (s.o) {
+    const wk = (code || mode) + ':' + me;
+    if (watchKey !== wk) {
+      const hostNote = mode === 'host' ? `<div class="ainfo" style="margin-top:6px">You're the host — your phone runs the table, so leaving ends it for everyone.</div>` : '';
+      el.innerHTML = `<div class="ainfo"><b>Busted out — ${ordinal(s.pl)} place.</b> What would you like to do?</div><div class="abtns"><button class="abtn a-fold" id="a-leave">🚪 Leave table</button><button class="abtn a-call" id="a-watch">👁 Keep watching</button></div>${hostNote}`;
+      $('#a-watch').onclick = () => { watchKey = wk; renderActions(true); renderHero(); };
+      $('#a-leave').onclick = () => leaveOut();
+      return;
+    }
+    el.innerHTML = `<div class="ainfo">Eliminated in ${ordinal(s.pl)} place — watching the rest.</div><button class="btn" id="b-leave-out" style="margin-top:6px">🚪 Leave table</button>`;
+    $('#b-leave-out').onclick = () => leaveOut();
+    return;
+  }
   if (T0.brk) {
     el.innerHTML = `<div class="mytime" id="brkclk"></div>` + (s.ad ? `<div class="ainfo">Add-on taken ✓ (+${T0.set.stack.toLocaleString('en-US')})</div>` : `<div class="abtns"><button class="abtn a-raise" id="a-ad">➕ Take add-on<small>+${T0.set.stack.toLocaleString('en-US')} chips${costTxt(T0)}</small></button></div>`);
     if ($('#a-ad')) $('#a-ad').onclick = reqAddon; updateClocks(); return;
@@ -2130,6 +2142,13 @@ function openRanks() {
     <p class="note" style="margin-top:12px">Best 5-card hand from your 2 hole cards + 5 community cards wins. Heads-up: the dealer posts the small blind and acts first before the flop.</p>
     <button class="btn" id="rk-back" style="margin-top:8px">Back</button>`);
   $('#rk-back').onclick = openMenu;
+}
+let watchKey = '';
+async function leaveOut() {
+  if (mode === 'host' && view.T && view.T.status === 'play') { if (!(await ask('You\'re the host. Leaving ends the table for everyone still playing. Leave anyway?', 'End table'))) return; }
+  const T0 = view.T, me = mySeat();
+  if (T0 && T0.status === 'play' && me >= 0 && T0.seats[me].o === 1) recordCareer(T0); // place is final, so it still counts in the career record
+  leaveTable(true);
 }
 async function leaveTable(skipAsk) {
   if (inTable && view.T && view.T.status === 'play' && !skipAsk) {
