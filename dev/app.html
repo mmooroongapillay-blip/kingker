@@ -455,7 +455,7 @@ html,body{background:radial-gradient(ellipse at 50% 0%,#15322d 0%,var(--room) 55
   </div>
   <div id="opt-stack"><p class="lbl">Starting stack</p><div class="seg" data-k="stack"><button data-v="1500">1,500</button><button data-v="3000">3,000</button><button data-v="5000">5,000</button><button data-v="10000">10,000</button></div></div>
   <div id="opt-mins"><p class="lbl">Speed</p><div class="seg speed" data-k="mins"><button data-v="10">Regular<small>10-min levels</small></button><button data-v="5">Turbo<small>5-min levels</small></button><button data-v="3">Hyper<small>3-min levels</small></button></div></div>
-  <div><p class="lbl">Time to act</p><div class="seg" data-k="turn"><button data-v="10">10s</button><button data-v="15">15s</button><button data-v="25">25s</button><button data-v="40">40s</button><button data-v="0">Off</button></div></div>
+  <div><p class="lbl">Time to act</p><div class="seg" data-k="turn"><button data-v="10">10s</button><button data-v="15">15s</button><button data-v="20">20s</button><button data-v="30">30s</button><button data-v="0">Off</button></div></div>
   <div id="opt-struct">
     <p class="lbl">Antes</p><div class="seg" data-k="ante"><button data-v="0">Off</button><button data-v="1">From level 4</button></div>
     <p class="lbl" style="margin-top:14px">Rebuys per player</p><div class="seg" data-k="rb"><button data-v="0">Off</button><button data-v="1">1</button><button data-v="2">2</button><button data-v="99">Unlimited</button></div>
@@ -646,7 +646,7 @@ function refreshHome() {
 }
 
 // ================== SETUP ==================
-const setup = { fmt: 'hu', stack: 1500, mins: 5, turn: 10, tb: 0, ante: 0, rb: 0, rbl: 4, ad: 1, players: 2, local: false };
+const setup = { fmt: 'hu', stack: 1500, mins: 5, turn: 20, tb: 0, ante: 0, rb: 0, rbl: 4, ad: 1, players: 2, local: false };
 function renderSetup() {
   document.querySelectorAll('#fmt-pick .fmt').forEach(b => b.classList.toggle('on', b.dataset.f === setup.fmt));
   const spin = setup.fmt === 'spin';
