@@ -15,9 +15,9 @@ async def m():
             if await pg.query_selector('#a-watch'): await pg.click('#a-watch')
         await pg.wait_for_timeout(1500)
         print('status', await pg.evaluate('T.status'), 'hands', await pg.evaluate('T.hand.n'))
-        print('LINE:', await pg.inner_text('#b-fair2'))
+        print('LINE hidden:', await pg.query_selector('#b-fair2') is None, '|', await pg.evaluate('fairLine(view.T)'))
         await pg.screenshot(path='shot_fair_over.png')
-        await pg.click('#b-fair2'); await pg.wait_for_timeout(300); await pg.screenshot(path='shot_fair_sheet.png', full_page=True)
+        await pg.evaluate('closeSheet(); openFair()'); await pg.wait_for_timeout(300); await pg.screenshot(path='shot_fair_sheet.png', full_page=True)
         # tamper check
         print('tampered:', await pg.evaluate("(()=>{const fd=JSON.parse(JSON.stringify(view.T.fairDone)); const L=fairLogs[fd.c]; const n=Object.keys(L).find(k=>L[k].b.length); L[n].b[0]=(L[n].b[0]+1)%52; return JSON.stringify(fairVerify(fd).bad)})()"))
         print('wrongkey:', await pg.evaluate("(()=>{const fd=JSON.parse(JSON.stringify(view.T.fairDone)); fd.s='00'+fd.s.slice(2); return fairVerify(fd).keyOk})()"))

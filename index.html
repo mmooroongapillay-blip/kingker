@@ -1660,7 +1660,7 @@ function renderLobby() {
   $('#lob-wait').textContent = host ? (T0.seats.length < 2 ? 'Waiting for players… you can also add bots.' : 'Ready when you are.')
     : (me >= 0 ? 'You\'re seated. Waiting for the host to start…' : (T0.seats.length >= f.max ? 'Table is full — you\'ll watch as a spectator.' : 'Taking a seat…'));
   $('#b-copy').classList.toggle('hidden', !host);
-  $('#lob-fair').innerHTML = T0.fair ? `🛡 Deck locked before the game · fingerprint <code>${fp(T0.fair.c)}</code> <u>How to check</u>` : '';
+  $('#lob-fair').innerHTML = ''; // fair shuffle runs quietly; details only in ☰ → Fair shuffle (Mahen, 22 Nov)
 }
 $('#lob-fair').onclick = () => openFair();
 $('#lob-list').addEventListener('click', e => { const b = e.target.closest('[data-kick]'); if (b) hostKick(b.dataset.kick); });
@@ -2065,7 +2065,7 @@ function renderOver() {
   const host = mode === 'host' || mode === 'local';
   openSheet('over', `<div class="res-top"><div class="tro">🏆</div><h2>${esc(w.n)} wins!</h2><p class="note">${esc(FORMATS[T0.fmt].name)} · ${T0.hand ? T0.hand.n : 0} hands${po.pool ? ` · prize pool Rs ${po.pool.toLocaleString('en-US')}` : ''}</p></div>
     ${order.map((s, k) => `<div class="place ${k === 0 ? 'first' : ''}"><div class="pn">${ordinal(s.pl)}</div><div class="pname">${s.b ? '🤖 ' : ''}${esc(s.n)}${s.id === myId ? ' (you)' : ''}${s.rb || s.ad ? `<div class="note" style="font-size:11.5px">${s.rb ? s.rb + ' rebuy' + (s.rb > 1 ? 's' : '') : ''}${s.rb && s.ad ? ' · ' : ''}${s.ad ? 'add-on' : ''}</div>` : ''}</div>${po.pool && po.amt[k] ? `<div class="prize">Rs ${po.amt[k].toLocaleString('en-US')}</div>` : ''}</div>`).join('')}
-    ${T0.fairDone ? `<button class="fairline" id="b-fair2">${esc(fairLine(T0))} <span>›</span></button>` : ''}
+    ${T0.fairDone && /^⚠️/.test(fairLine(T0)) ? `<button class="fairline" id="b-fair2">${esc(fairLine(T0))} <span>›</span></button>` : ''}
     <div class="row" style="margin-top:14px">${host ? '<button class="btn gold" id="b-again">Play again</button>' : ''}<button class="btn" id="b-stats2">📊 Stats</button><button class="btn" id="b-hist2">History</button></div>
     <button class="btn" id="b-leave2" style="margin-top:10px">Leave table</button>
     ${host ? '' : '<p class="note" style="text-align:center">The host can start a rematch.</p>'}`);
